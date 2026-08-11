@@ -16,7 +16,7 @@ Every domain table carries an immutable organisation owner. Cross-organisation r
 | Safety | SpamAssessment, AttachmentAssessment | versioned re-scan; purge with source | yes |
 | Knowledge | Conversation, Contact, Company, ProductConcept, Interaction, DerivedFact, EvidenceCitation | derived/rebuildable; reviewable merges | yes/inferred |
 | Taxonomy | ProjectEntity, Tag/EntityTag, EntityRelationship, ContactMetric | project-scoped; rebuild metrics, preserve reviewed tags | yes/inferred |
-| Enrichment | ExtractionProfile, EnrichmentResult | URL/hash provenance; candidate review; project budget/allowlist | yes/inferred |
+| Enrichment | ExtractionProfile, EnrichmentResult | URL/hash provenance; candidate review; project budget/allowlist. ExtractionProfile (entity type `message`) overrides the shipped extraction rules per project; absence means the code defaults in `foundry/heuristics.py` apply. | yes/inferred |
 | Review | OpportunityCandidate, ReviewDecision, Digest | versioned; retain audit under policy | yes/inferred |
 | Integration | ModelRun, ResearchArtifact, ExportBatch/Record | provider/policy-bound | yes |
 | Audit | AuditEvent | append-only in application; separately retained | operational |

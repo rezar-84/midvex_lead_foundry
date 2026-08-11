@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Lead Foundry{% endblock %}</title>
+  <title>{% block title %}{{ brand_name }}{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'foundry/app.css' %}">
   <link rel="stylesheet" href="{% static 'foundry/knowledge.css' %}">
   <link rel="stylesheet" href="{% static 'foundry/operations.css' %}">
@@ -13,7 +13,7 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="{% url 'dashboard' %}">MIDVEX <span>Lead Foundry</span></a>
+    <a class="brand" href="{% url 'dashboard' %}">{{ brand_name }}</a>
     {% if user.is_authenticated %}
       <nav aria-label="Primary">
         <a href="{% url 'dashboard' %}">Overview</a>

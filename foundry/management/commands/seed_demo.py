@@ -5,6 +5,7 @@ import argparse
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
+from foundry.connectors import SYNTHETIC_INTERNAL_ADDRESS, SYNTHETIC_INTERNAL_DOMAIN
 from foundry.models import BatchJob, LeadProject, LeadSource, Membership, Organization
 from foundry.operations import execute_analysis_job, execute_sync_job
 
@@ -14,15 +15,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--username", default="demo")
+        parser.add_argument("--org-name", default="Demo")
+        parser.add_argument("--org-slug", default="demo")
 
     def handle(self, *args: object, **options: object) -> None:
         organization, _ = Organization.objects.get_or_create(
-            slug="midvex-demo",
+            slug=str(options["org_slug"]),
             defaults={
-                "name": "Midvex Demo",
+                "name": str(options["org_name"]),
                 "retention_days": 30,
-                "internal_addresses": ["sales@midvex.test"],
-                "internal_domains": ["midvex.test"],
+                "internal_addresses": [SYNTHETIC_INTERNAL_ADDRESS],
+                "internal_domains": [SYNTHETIC_INTERNAL_DOMAIN],
             },
         )
         user_model = get_user_model()
@@ -56,7 +59,7 @@ class Command(BaseCommand):
             name="Synthetic mailbox",
             defaults={
                 "source_type": LeadSource.SourceType.SYNTHETIC,
-                "email_address": "sales@midvex.test",
+                "email_address": SYNTHETIC_INTERNAL_ADDRESS,
                 "status": LeadSource.Status.READY,
                 "rate_limit_per_minute": 60,
                 "max_messages_per_run": 50,

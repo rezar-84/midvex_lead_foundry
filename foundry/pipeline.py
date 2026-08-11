@@ -13,6 +13,7 @@ from email.utils import getaddresses, parsedate_to_datetime
 from django.db import transaction
 from django.utils import timezone
 
+from .heuristics import CompiledProfile, default_profile
 from .models import (
     Attachment,
     Company,
@@ -28,13 +29,6 @@ from .models import (
     SpamAssessment,
 )
 from .storage import store_raw
-
-OPPORTUNITY_TERMS = re.compile(
-    r"\b(quote|quotation|proposal|pricing|price|budget|demo|meeting|follow[ -]?up|"
-    r"teklif|fiyat|bütçe|demo|toplantı|geri dönüş)\b",
-    re.IGNORECASE,
-)
-NEGATIVE_TERMS = re.compile(r"\b(unsubscribe|newsletter|receipt|fatura|bülten)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -119,6 +113,7 @@ def ingest_rfc822(
     *,
     labels: list[str] | None = None,
     provider_thread_id: str = "",
+    profile: CompiledProfile | None = None,
 ) -> IngestResult:
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Message exceeds the configured size limit")
@@ -242,14 +237,17 @@ def ingest_rfc822(
             )
 
     opportunity = None
+    rules = profile or default_profile()
+    opportunity_terms = rules.opportunity
+    exclusion_terms = rules.exclusion
     text = f"{message.subject}\n{body}"
     if (
         spam_action == "accept"
         and not attachment_parts
-        and OPPORTUNITY_TERMS.search(text)
-        and not NEGATIVE_TERMS.search(text)
+        and opportunity_terms.search(text)
+        and not exclusion_terms.search(text)
     ):
-        match = OPPORTUNITY_TERMS.search(text)
+        match = opportunity_terms.search(text)
         if match is None:
             return IngestResult(message, True, None)
         reason = f"Detected commercial intent term: {match.group(0)}"

@@ -30,6 +30,101 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-020 — white-label configuration and provisioning
+
+**Date:** 2026-08-12 **Tier:** 1
+**Status:** Done
+**Branch/commits:** `feat/MVX-020-white-label-configuration`, merged to `main` with `--no-ff`; approval recorded per ADR 0007
+
+### What changed
+
+The product is now deployable for any organisation. Brand identity comes from
+`FOUNDRY_BRAND_NAME` (header, page titles, TOTP issuer) and `FOUNDRY_USER_AGENT`
+(enrichment fetcher); locale from `DJANGO_LANGUAGE_CODE`/`DJANGO_LANGUAGES` with
+`LocaleMiddleware` enabled. The extraction heuristics moved from compiled constants
+in `operations.py`/`pipeline.py` into `foundry/heuristics.py` as
+`DEFAULT_FIELD_RULES`, compiled into a validated per-project `CompiledProfile`; the
+previously dead `ExtractionProfile` model is now live — a project-scoped row
+(entity type `message`, highest version wins) overrides any rule, absence means
+shipped defaults, and enrichment records the active profile version. Synthetic
+fixtures were neutralised to `demo-seller.test` constants; `seed_demo` gained
+`--org-name/--org-slug`; a new idempotent `provision` command creates an
+organisation plus first admin without `/admin`. ADR 0008 records the decisions.
+
+### Why
+
+White-label single-tenant reuse was the decided target. The heuristics were the
+deepest coupling: regex constants baked a Turkish dental-scanner business into
+extraction. Wiring the existing (dead) ExtractionProfile model makes rules a data
+override with a shipped default, instead of a fork-the-code customisation.
+
+### Verified
+
+```
+uv run ruff format --check .   → 43 files already formatted
+uv run ruff check .            → All checks passed!
+uv run mypy foundry lead_foundry → Success: no issues found in 32 source files
+uv run pytest                  → 39 passed (7 new in tests/test_white_label.py)
+uv build                       → wheel + sdist built
+uv run bandit -q               → no findings
+uv run pip-audit               → no known vulnerabilities
+uv run python scripts/check_a11y.py → 27 templates passed
+uv run python manage.py check / makemigrations --check → clean; NO new migration
+uv run python manage.py seed_demo → "Synthetic demo data created" (smoke, sqlite)
+```
+
+- [x] `checks.format` — Verified — 43 files
+- [x] `checks.lint` — Verified — clean
+- [x] `checks.typecheck` — Verified — clean, 32 files
+- [x] `checks.unit` — Verified — within 39-passed full run
+- [x] `checks.integration` — Verified — within full run
+- [x] `checks.contract` — Verified — within full run
+- [x] `checks.build` — Verified — sdist + wheel
+- [x] `checks.scan` — Verified — Bandit and pip-audit clean
+- [x] `checks.a11y` — Verified — 27 templates, static checks only
+- [x] `checks.e2e` — Verified — within full run
+- [x] manual — seed_demo + migrate smoke on sqlite; no rendered browser session (MVX-008)
+
+### Not done
+
+- Profile editor UI (create/edit `ExtractionProfile` rows from the product) →
+  follow-up; rows are admin/ORM-authored for now.
+- `{% trans %}` extraction sweep → MVX-023.
+- Many templates still hardcode "· Lead Foundry" in their `{% block title %}`
+  suffix; the base default uses the brand but per-page suffixes don't → fold into
+  MVX-023's copy sweep.
+- Multi-tenant brand/config and web onboarding → MVX-014.
+
+### Discovered
+
+- The planned "seed default profile per project + backfill migration" was dropped:
+  with a code fallback, seeded rows duplicating defaults would drift when defaults
+  improve and would need their own migration to remove. Deviation recorded in the
+  plan and ADR 0008; consequence — this item ships **no migration**.
+- `pipeline.py` kept a second copy of the opportunity/exclusion patterns; both
+  copies now live once in `DEFAULT_FIELD_RULES`.
+
+### Decisions
+
+- ADR 0008 — configuration-driven white-labelling and data-driven extraction
+  profiles (fallback over seeding; CLI provisioning over a web wizard; package name
+  is not runtime brand).
+
+### Assumptions used
+
+- Single-deployment/single-brand until MVX-014. AR1 (solo approver) for the merge.
+
+### Plan
+
+`docs/project/plans/MVX-020.md` (approved).
+
+### Reviews
+
+`docs/project/reviews/MVX-020-design.md` (Pass with conditions) and
+`docs/project/reviews/MVX-020-ship.md` (Pass with conditions for the synthetic
+increment; the standing privacy-legal Block on external execution remains).
+Approval recorded per ADR 0007.
+
 ## MVX-019 — UI consistency: pagination, unified forms, capability gating, empty states, MFA QR
 
 **Date:** 2026-08-12 **Tier:** 2

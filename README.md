@@ -16,6 +16,27 @@ uv run python manage.py runserver
 
 The seed command uses reserved `.test` addresses and synthetic content only. It creates an “Archive recovery demo” project, a synthetic source, completed sync/analysis jobs, contacts, products and relationship metrics. The application requires MFA enrollment after sign-in.
 
+## Self-hosting for your own organisation
+
+The product is white-label: any organisation can run its own instance.
+
+```bash
+FOUNDRY_ADMIN_PASSWORD='choose-a-strong-password' \
+  uv run python manage.py provision --org-name "Acme Leads" --username acme-admin
+```
+
+`provision` is idempotent — it creates the organisation, the first admin account and
+the admin membership, and never prints the password. Configure the instance through
+environment variables (see `.env.example`): `FOUNDRY_BRAND_NAME` sets the header,
+page titles and TOTP issuer; `FOUNDRY_USER_AGENT` identifies the enrichment fetcher;
+`DJANGO_LANGUAGE_CODE`/`DJANGO_LANGUAGES`/`DJANGO_TIME_ZONE` set the locale.
+
+Entity extraction is driven by per-project **extraction profiles**
+(`foundry/heuristics.py`): a project without a profile row uses the shipped default
+rules, and a project-scoped `ExtractionProfile` row (entity type `message`) can
+override any rule pattern. Rules are validated regex strings — invalid or oversized
+patterns are rejected.
+
 ## Production gates
 
 Do not set `GMAIL_REAL_DATA_ENABLED=true` until authority, jurisdiction, retention, deletion, processor terms, two Tier 1 approvers, and rollback ownership are recorded. See [security and privacy](docs/project/security-privacy.md) and the [release runbook](docs/project/release-runbook.md).

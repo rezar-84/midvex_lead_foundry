@@ -31,9 +31,9 @@ class SourceConnectForm(forms.Form):
 
 class LeadProjectForm(forms.ModelForm):  # type: ignore[type-arg]
     languages = forms.MultipleChoiceField(
-        choices=[("en", "English"), ("tr", "Türkçe")],
+        choices=settings.LANGUAGES,
         widget=forms.CheckboxSelectMultiple,
-        initial=["en", "tr"],
+        initial=[code for code, _ in settings.LANGUAGES],
     )
     allowed_domains_text = forms.CharField(
         required=False,

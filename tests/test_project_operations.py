@@ -6,7 +6,11 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-from foundry.connectors import validate_public_mail_host
+from foundry.connectors import (
+    SYNTHETIC_INTERNAL_ADDRESS,
+    SYNTHETIC_INTERNAL_DOMAIN,
+    validate_public_mail_host,
+)
 from foundry.crypto import decrypt
 from foundry.enrichment import FetchedPage, validate_public_url
 from foundry.models import (
@@ -139,8 +143,8 @@ def test_imap_source_requires_tls_and_encrypts_password(mfa_session, workspace):
 @pytest.mark.e2e
 def test_synthetic_project_sync_analysis_and_entity_ui(mfa_session, workspace, settings, tmp_path):
     organization, _, _, _ = workspace
-    organization.internal_addresses = ["sales@midvex.test"]
-    organization.internal_domains = ["midvex.test"]
+    organization.internal_addresses = [SYNTHETIC_INTERNAL_ADDRESS]
+    organization.internal_domains = [SYNTHETIC_INTERNAL_DOMAIN]
     organization.save()
     settings.RAW_STORAGE_BACKEND = "filesystem"
     settings.RAW_STORAGE_ROOT = tmp_path
@@ -150,7 +154,7 @@ def test_synthetic_project_sync_analysis_and_entity_ui(mfa_session, workspace, s
         {
             "source_type": "synthetic",
             "name": "Safe demo",
-            "email_address": "sales@midvex.test",
+            "email_address": SYNTHETIC_INTERNAL_ADDRESS,
             "rate_limit_per_minute": 60,
             "max_messages_per_run": 50,
             "confirm_authority": "on",

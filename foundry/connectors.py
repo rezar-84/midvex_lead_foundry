@@ -55,17 +55,34 @@ def validate_public_mail_host(host: str, *, resolver: Any = socket.getaddrinfo) 
         raise PermissionError("Private, reserved and local mail targets are forbidden")
 
 
+# Neutral demo scenario used by the synthetic source and seed_demo. Everything
+# lives under reserved .test domains so no real party can be implicated.
+SYNTHETIC_INTERNAL_DOMAIN = "demo-seller.test"
+SYNTHETIC_INTERNAL_ADDRESS = f"sales@{SYNTHETIC_INTERNAL_DOMAIN}"
+SYNTHETIC_CONTACT_NAME = "Deniz Buyer"
+SYNTHETIC_CONTACT_EMAIL = "deniz@example.test"
+SYNTHETIC_PRODUCT_NAME = "Nova scanner"
+
+
 def _synthetic_messages() -> Iterator[SourceEnvelope]:
     samples = [
-        b"From: Deniz Buyer <deniz@example.test>\r\nTo: sales@midvex.test\r\n"
-        b"Date: Mon, 7 Apr 2025 09:10:00 +0300\r\nMessage-ID: <project-demo-1@example.test>\r\n"
-        b"Subject: Dental scanner quotation\r\n\r\n"
-        b"We are a buyer interested in the Nova scanner product. "
-        b"Please send pricing and arrange a demo.\r\n",
-        b"From: sales@midvex.test\r\nTo: Deniz Buyer <deniz@example.test>\r\n"
-        b"Date: Wed, 9 Apr 2025 10:00:00 +0300\r\nMessage-ID: <project-demo-2@midvex.test>\r\n"
-        b"Subject: Re: Dental scanner quotation\r\n\r\n"
-        b"Thank you. We sent the proposal and will follow up next week.\r\n",
+        (
+            f"From: {SYNTHETIC_CONTACT_NAME} <{SYNTHETIC_CONTACT_EMAIL}>\r\n"
+            f"To: {SYNTHETIC_INTERNAL_ADDRESS}\r\n"
+            "Date: Mon, 7 Apr 2025 09:10:00 +0300\r\n"
+            "Message-ID: <project-demo-1@example.test>\r\n"
+            "Subject: Scanner quotation\r\n\r\n"
+            f"We are a buyer interested in the {SYNTHETIC_PRODUCT_NAME} product. "
+            "Please send pricing and arrange a demo.\r\n"
+        ).encode(),
+        (
+            f"From: {SYNTHETIC_INTERNAL_ADDRESS}\r\n"
+            f"To: {SYNTHETIC_CONTACT_NAME} <{SYNTHETIC_CONTACT_EMAIL}>\r\n"
+            "Date: Wed, 9 Apr 2025 10:00:00 +0300\r\n"
+            f"Message-ID: <project-demo-2@{SYNTHETIC_INTERNAL_DOMAIN}>\r\n"
+            "Subject: Re: Scanner quotation\r\n\r\n"
+            "Thank you. We sent the proposal and will follow up next week.\r\n"
+        ).encode(),
     ]
     for index, raw in enumerate(samples, start=1):
         yield SourceEnvelope(f"synthetic-{index}", "synthetic-thread-1", raw, [], str(index))
