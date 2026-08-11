@@ -1,3 +1,31 @@
-{% extends "foundry/base.html" %}{% block title %}Projects · Lead Foundry{% endblock %}{% block content %}
-<div class="page-head"><div><p class="eyebrow">Workspaces</p><h1>Lead projects</h1><p>Keep each purpose, source set, budget and enrichment scope separate.</p></div>{% if active_membership.role == 'admin' %}<a class="button" href="{% url 'project_create' %}">Create project</a>{% endif %}</div>
-<div class="card-grid">{% for project in projects %}<a class="project-card" href="{% url 'project_detail' project.id %}"><span class="status">{{ project.get_status_display }}</span><h2>{{ project.name }}</h2><p>{{ project.purpose|truncatechars:150 }}</p><dl><dt>Sources</dt><dd>{{ project.sources.count }}</dd><dt>Retention</dt><dd>{{ project.retention_days }} days</dd><dt>Budget</dt><dd>{{ project.monthly_request_budget }} requests</dd></dl></a>{% empty %}<section class="empty-state"><h2>Create the first project</h2><p>A project defines why data is processed, where it comes from, and which enrichment domains are allowed.</p></section>{% endfor %}</div>{% endblock %}
+{% extends "foundry/base.html" %}
+{% block title %}Projects · Lead Foundry{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Workspaces</p>
+    <h1>Lead projects</h1>
+    <p>Keep each purpose, source set, budget and enrichment scope separate.</p>
+  </div>
+  {% if "manage_projects" in capabilities %}<a class="button" href="{% url 'project_create' %}">Create project</a>{% endif %}
+</div>
+<div class="card-grid">
+  {% for project in projects %}
+  <a class="project-card" href="{% url 'project_detail' project.id %}">
+    <span class="status">{{ project.get_status_display }}</span>
+    <h2>{{ project.name }}</h2>
+    <p>{{ project.purpose|truncatechars:150 }}</p>
+    <dl>
+      <dt>Sources</dt><dd>{{ project.sources.count }}</dd>
+      <dt>Retention</dt><dd>{{ project.retention_days }} days</dd>
+      <dt>Budget</dt><dd>{{ project.monthly_request_budget }} requests</dd>
+    </dl>
+  </a>
+  {% empty %}
+  <section class="empty-state">
+    <h2>Create the first project</h2>
+    <p>A project defines why data is processed, where it comes from, and which enrichment domains are allowed.</p>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

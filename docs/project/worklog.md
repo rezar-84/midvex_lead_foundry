@@ -30,6 +30,115 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-019 — UI consistency: pagination, unified forms, capability gating, empty states, MFA QR
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `feat/MVX-019-ui-consistency`, merged to `main` with `--no-ff`
+
+### What changed
+
+Every list paginates (contacts, products, opportunities, conversations, knowledge —
+reusing MVX-018's helper and include, preserving filter querystrings). All eight
+`{{ form.as_p }}` sites now render through a shared
+`templates/foundry/includes/form_fields.html` include with per-field labels, help
+text and inline errors, matching the hand-built source form. Navigation and action
+affordances are gated by capability, not role name: the Tags link hides from roles
+without `run_batches`; the contacts bulk bar shows tag controls to `run_batches` and
+enrichment controls to `run_enrichment` (previously admin-only, which locked analysts
+out of a capability they hold); Sources/Settings/Create-project/Export/Review
+affordances all read the new `capabilities` context value. Invalid bulk submissions
+on the contacts page re-render with field errors and the selection preserved
+(HTTP 400) instead of a lossy redirect with a generic flash. Empty lists show
+explanatory `.empty-state` panels. The opportunities status filter marks the active
+link with `aria-current`. MFA setup shows a QR code (new pinned dependency `segno`,
+pure-Python SVG) beside the existing secret. The remaining one-lined templates were
+re-wrapped to multi-line.
+
+### Why
+
+Presentation debt concentrated in three patterns — unpaginated querysets, `as_p`
+dumps, and role-name gating that disagreed with the capability map — so the fix is
+three shared mechanisms (paginate helper, form include, `capabilities` in template
+context) applied everywhere, rather than page-by-page patches.
+
+### Verified
+
+```
+uv run ruff format --check .   → 40 files already formatted
+uv run ruff check .            → All checks passed!
+uv run mypy foundry lead_foundry → Success: no issues found in 30 source files
+uv run pytest                  → 33 passed (8 new in tests/test_ui_consistency.py)
+uv build                       → wheel + sdist built
+uv run bandit -q               → no findings
+uv run pip-audit               → no known vulnerabilities (segno 1.6.6 audited clean)
+uv run python scripts/check_a11y.py → 27 templates passed
+uv run python manage.py check / makemigrations --check → clean, no schema drift
+```
+
+- [x] `checks.format` — Verified — 40 files
+- [x] `checks.lint` — Verified — clean
+- [x] `checks.typecheck` — Verified — clean, 30 files
+- [x] `checks.unit` — Verified — within the 33-passed full run
+- [x] `checks.integration` — Verified — within the full run
+- [x] `checks.contract` — Verified — within the full run
+- [x] `checks.build` — Verified — sdist + wheel
+- [x] `checks.scan` — Verified — Bandit and pip-audit clean, `segno==1.6.6` pinned
+- [x] `checks.a11y` — Verified — 27 templates, static checks only
+- [x] `checks.e2e` — Verified — within the full run
+- [ ] manual — **Not run** — no rendered browser/AT session; MVX-008.
+
+### Not done
+
+- Contacts pagination paginates the materialised list from `_project_contacts`
+  (correct, but the queryset-level optimisation is deferred) → noted for MVX-021/022.
+- A read-only Tags view for reviewers was rejected for now: it would loosen an
+  authorisation check, which is Tier 1 → candidate future item.
+- Rendered usability/WCAG conformance still unverified → MVX-008.
+
+### Discovered
+
+- `contact_tag_assign` built its tag choices differently from the page
+  (`tag.name` vs `category: name`), invisible before because errors collapsed to a
+  flash message; both now share `_tag_choices`.
+- The template reflow could not be a separate commit as planned: every long-lined
+  template also needed capability-gating edits, so separating reflow from gating
+  would have produced two overlapping rewrites of the same lines.
+
+### Decisions
+
+- New dependency `segno` (QR): pure-Python, no image library, SVG output, ~135 kB;
+  justified for a material MFA-enrolment usability gap; pinned and audited.
+- Form errors return HTTP 400 on re-render so failures are visible to tests and
+  monitoring rather than masked by a 302.
+
+### Assumptions used
+
+- Capability map in `foundry/access.py` is the single authority for what each role
+  may do; templates now assume it rather than restating role names.
+
+### Plan
+
+Tier 2 plan (inline): build the form include and capability context first, then apply
+per template; pagination reuses MVX-018's helper; contacts form fixed by
+render-on-error with preserved selection rather than splitting into two forms (the
+checkbox set is shared state — two forms would duplicate the table or lose
+selection). Rejected: JS-based selection persistence (server render is simpler and
+works without JS).
+
+### Reviews
+
+- ux-designer — Pass with conditions — S3: affordances now match capabilities;
+  selection loss on error fixed; no rendered session run (MVX-008).
+- accessibility — Pass with conditions — S3: `aria-current` on filters, labelled
+  QR image, field errors adjacent to inputs, `role="alert"` on the form-error
+  summary; static checks only, conformance remains MVX-008.
+- copywriter — Pass — empty states explain the next action in product voice; no new
+  capability or accuracy claims introduced.
+- qa — Pass — nav gating per role, error re-render with preserved selection,
+  pagination bounds, QR render and empty states covered by 8 new tests; noted the
+  admin e2e journey still passes unchanged.
+
 ## MVX-018 — job lifecycle: transaction fix, live progress, cancellation, pagination
 
 **Date:** 2026-08-12 **Tier:** 2

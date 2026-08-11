@@ -1,8 +1,44 @@
-{% extends "foundry/base.html" %}{% block title %}{{ project.name }} · Lead Foundry{% endblock %}{% block content %}
-<div class="page-head"><div><p class="eyebrow">{{ project.get_status_display }} project</p><h1>{{ project.name }}</h1><p>{{ project.purpose }}</p></div>{% if active_membership.role == 'admin' %}<a class="button secondary" href="{% url 'project_source_create' project.id %}">Add lead source</a>{% endif %}</div>
+{% extends "foundry/base.html" %}
+{% block title %}{{ project.name }} · Lead Foundry{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{ project.get_status_display }} project</p>
+    <h1>{{ project.name }}</h1>
+    <p>{{ project.purpose }}</p>
+  </div>
+  {% if "manage_sources" in capabilities %}<a class="button secondary" href="{% url 'project_source_create' project.id %}">Add lead source</a>{% endif %}
+</div>
 {% include "foundry/projects/_project_nav.html" %}
-{% if not external_sources_enabled %}<div class="warning"><strong>External source execution is disabled.</strong> Synthetic sources work locally; Gmail, IMAP and POP3 remain configuration-only until policy approval.</div>{% endif %}
-<section class="metrics" aria-label="Project entities"><article><strong>{{ entity_counts.contact }}</strong><span>Contacts</span></article><article><strong>{{ entity_counts.product }}</strong><span>Products</span></article><article><strong>{{ entity_counts.opportunity }}</strong><span>Opportunities</span></article></section>
-<div class="section-head"><h2>Lead sources</h2></div><div class="card-grid compact">{% for source in sources %}<a class="project-card" href="{% url 'project_source_detail' project.id source.id %}"><span class="source-icon">{{ source.source_type|upper }}</span><h3>{{ source.name }}</h3><p>{{ source.email_address }}</p><span class="status status-{{ source.status }}">{{ source.get_status_display }}</span></a>{% empty %}<p>No sources configured.</p>{% endfor %}</div>
-<div class="section-head operations-head"><h2>Processing</h2>{% if active_membership.role == 'admin' or active_membership.role == 'analyst' %}<form method="post" action="{% url 'project_analysis_start' project.id %}">{% csrf_token %}<button>Run entity analysis</button></form>{% endif %}</div>
-{% include "foundry/projects/_jobs_table.html" %}{% endblock %}
+{% if not external_sources_enabled %}
+<div class="warning"><strong>External source execution is disabled.</strong> Synthetic sources work locally; Gmail, IMAP and POP3 remain configuration-only until policy approval.</div>
+{% endif %}
+<section class="metrics" aria-label="Project entities">
+  <article><strong>{{ entity_counts.contact }}</strong><span>Contacts</span></article>
+  <article><strong>{{ entity_counts.product }}</strong><span>Products</span></article>
+  <article><strong>{{ entity_counts.opportunity }}</strong><span>Opportunities</span></article>
+</section>
+<div class="section-head"><h2>Lead sources</h2></div>
+<div class="card-grid compact">
+  {% for source in sources %}
+  <a class="project-card" href="{% url 'project_source_detail' project.id source.id %}">
+    <span class="source-icon">{{ source.source_type|upper }}</span>
+    <h3>{{ source.name }}</h3>
+    <p>{{ source.email_address }}</p>
+    <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+  </a>
+  {% empty %}
+  <section class="empty-state">
+    <h2>No sources configured</h2>
+    <p>Add a lead source to start syncing messages into this project.</p>
+  </section>
+  {% endfor %}
+</div>
+<div class="section-head operations-head">
+  <h2>Processing</h2>
+  {% if "run_batches" in capabilities %}
+  <form method="post" action="{% url 'project_analysis_start' project.id %}">{% csrf_token %}<button>Run entity analysis</button></form>
+  {% endif %}
+</div>
+{% include "foundry/projects/_jobs_table.html" %}
+{% endblock %}

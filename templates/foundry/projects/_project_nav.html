@@ -2,7 +2,7 @@
   <a href="{% url 'project_detail' project.id %}">Operations</a>
   <a href="{% url 'project_contacts' project.id %}">Contacts</a>
   <a href="{% url 'project_products' project.id %}">Products</a>
-  <a href="{% url 'project_tags' project.id %}">Tags</a>
+  {% if "run_batches" in capabilities %}<a href="{% url 'project_tags' project.id %}">Tags</a>{% endif %}
   <a href="{% url 'project_jobs' project.id %}">Jobs</a>
-  {% if active_membership.role == 'admin' %}<a href="{% url 'project_settings' project.id %}">Settings</a>{% endif %}
+  {% if "manage_projects" in capabilities %}<a href="{% url 'project_settings' project.id %}">Settings</a>{% endif %}
 </nav>

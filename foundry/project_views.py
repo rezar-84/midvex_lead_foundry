@@ -387,14 +387,33 @@ def _project_contacts(project: LeadProject) -> list[Contact]:
     )
 
 
-@login_required
-@require_capability("view")
-def project_contacts(request: HttpRequest, project_id: str) -> HttpResponse:
-    project = _project(request, project_id)
+def _contact_choices(contacts: list[Contact]) -> list[tuple[str, str]]:
+    return [
+        (str(contact.id), contact.display_name or contact.primary_email) for contact in contacts
+    ]
+
+
+def _tag_choices(project: LeadProject) -> list[tuple[str, str]]:
+    return [
+        (str(tag.id), f"{tag.category}: {tag.name}")
+        for tag in project.tags.order_by("category", "name")
+    ]
+
+
+def _contacts_context(
+    request: HttpRequest,
+    project: LeadProject,
+    *,
+    form: EnrichmentBatchForm | None = None,
+    tag_form: TagAssignmentForm | None = None,
+    selected_ids: set[str] | None = None,
+) -> dict[str, object]:
     contacts = _project_contacts(project)
+    page, querystring = paginate(request, contacts)
+    page_contacts = list(page.object_list)
     metrics = {
         metric.contact_id: metric
-        for metric in ContactMetric.objects.filter(project=project, contact__in=contacts)
+        for metric in ContactMetric.objects.filter(project=project, contact__in=page_contacts)
     }
     relationships: dict[object, list[tuple[EntityRelationship, ProductConcept]]] = {}
     product_ids = EntityRelationship.objects.filter(
@@ -416,7 +435,7 @@ def project_contacts(request: HttpRequest, project_id: str) -> HttpResponse:
     for assignment in EntityTag.objects.filter(
         tag__project=project,
         entity_type="contact",
-        entity_id__in=[item.id for item in contacts],
+        entity_id__in=[item.id for item in page_contacts],
     ).select_related("tag"):
         entity_tags.setdefault(assignment.entity_id, []).append(assignment.tag)
     rows = [
@@ -426,27 +445,30 @@ def project_contacts(request: HttpRequest, project_id: str) -> HttpResponse:
             "relationships": relationships.get(contact.id, []),
             "tags": entity_tags.get(contact.id, []),
         }
-        for contact in contacts
+        for contact in page_contacts
     ]
-    form = EnrichmentBatchForm(
-        contacts=[
-            (str(contact.id), contact.display_name or contact.primary_email) for contact in contacts
-        ]
-    )
-    tag_form = TagAssignmentForm(
-        contacts=[
-            (str(contact.id), contact.display_name or contact.primary_email) for contact in contacts
-        ],
-        tags=[
-            (str(tag.id), f"{tag.category}: {tag.name}")
-            for tag in project.tags.order_by("category", "name")
-        ],
-    )
-    return render(
-        request,
-        "foundry/projects/contacts.html",
-        {"project": project, "rows": rows, "form": form, "tag_form": tag_form},
-    )
+    if form is None:
+        form = EnrichmentBatchForm(contacts=_contact_choices(contacts))
+    if tag_form is None:
+        tag_form = TagAssignmentForm(
+            contacts=_contact_choices(contacts), tags=_tag_choices(project)
+        )
+    return {
+        "project": project,
+        "rows": rows,
+        "form": form,
+        "tag_form": tag_form,
+        "selected_ids": selected_ids or set(),
+        "page_obj": page,
+        "querystring": querystring,
+    }
+
+
+@login_required
+@require_capability("view")
+def project_contacts(request: HttpRequest, project_id: str) -> HttpResponse:
+    project = _project(request, project_id)
+    return render(request, "foundry/projects/contacts.html", _contacts_context(request, project))
 
 
 @login_required
@@ -529,14 +551,21 @@ def contact_tag_assign(request: HttpRequest, project_id: str) -> HttpResponse:
     contacts = _project_contacts(project)
     form = TagAssignmentForm(
         request.POST,
-        contacts=[
-            (str(contact.id), contact.display_name or contact.primary_email) for contact in contacts
-        ],
-        tags=[(str(tag.id), tag.name) for tag in project.tags.all()],
+        contacts=_contact_choices(contacts),
+        tags=_tag_choices(project),
     )
     if not form.is_valid():
-        messages.error(request, "Select contacts and a valid project tag.")
-        return redirect("project_contacts", project_id=project.id)
+        return render(
+            request,
+            "foundry/projects/contacts.html",
+            _contacts_context(
+                request,
+                project,
+                tag_form=form,
+                selected_ids=set(request.POST.getlist("contact_ids")),
+            ),
+            status=400,
+        )
     tag = get_object_or_404(Tag, project=project, id=form.cleaned_data["tag_id"])
     selected = set(form.cleaned_data["contact_ids"])
     for contact in contacts:
@@ -580,13 +609,19 @@ def project_tags(request: HttpRequest, project_id: str) -> HttpResponse:
 def enrichment_start(request: HttpRequest, project_id: str) -> HttpResponse:
     project = _project(request, project_id)
     contacts = _project_contacts(project)
-    choices = [
-        (str(contact.id), contact.display_name or contact.primary_email) for contact in contacts
-    ]
-    form = EnrichmentBatchForm(request.POST, contacts=choices)
+    form = EnrichmentBatchForm(request.POST, contacts=_contact_choices(contacts))
     if not form.is_valid():
-        messages.error(request, "Select valid contacts and an enrichment budget.")
-        return redirect("project_contacts", project_id=project.id)
+        return render(
+            request,
+            "foundry/projects/contacts.html",
+            _contacts_context(
+                request,
+                project,
+                form=form,
+                selected_ids=set(request.POST.getlist("contact_ids")),
+            ),
+            status=400,
+        )
     selected = set(form.cleaned_data["contact_ids"])
     job = _create_job(
         request,
@@ -623,8 +658,16 @@ def project_products(request: HttpRequest, project_id: str) -> HttpResponse:
     products = ProductConcept.objects.filter(
         organization=project.organization, id__in=ids
     ).order_by("canonical_name")
+    page, querystring = paginate(request, products, per_page=24)
     return render(
-        request, "foundry/projects/products.html", {"project": project, "products": products}
+        request,
+        "foundry/projects/products.html",
+        {
+            "project": project,
+            "products": page.object_list,
+            "page_obj": page,
+            "querystring": querystring,
+        },
     )
 
 

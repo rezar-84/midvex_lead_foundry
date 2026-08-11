@@ -4,12 +4,20 @@
 <p class="eyebrow">Evidence-linked graph</p>
 <h1>Knowledge</h1>
 <p>Candidate identities are inferred from message headers and remain reviewable.</p>
+{% if companies %}
 <div class="knowledge-grid">
   {% for company in companies %}
-    <article>
-      <h2>{{ company.name }}</h2><p class="muted">{{ company.domain }}</p>
-      <ul>{% for contact in company.contacts.all %}<li><strong>{{ contact.display_name|default:"Unknown name" }}</strong><br>{{ contact.primary_email }}</li>{% empty %}<li>No contacts linked.</li>{% endfor %}</ul>
-    </article>
-  {% empty %}<p>No knowledge records extracted.</p>{% endfor %}
+  <article>
+    <h2>{{ company.name }}</h2><p class="muted">{{ company.domain }}</p>
+    <ul>{% for contact in company.contacts.all %}<li><strong>{{ contact.display_name|default:"Unknown name" }}</strong><br>{{ contact.primary_email }}</li>{% empty %}<li>No contacts linked.</li>{% endfor %}</ul>
+  </article>
+  {% endfor %}
 </div>
+{% include "foundry/includes/pagination.html" %}
+{% else %}
+<section class="empty-state">
+  <h2>No knowledge records extracted</h2>
+  <p>Identities appear here after messages are ingested and analysed.</p>
+</section>
+{% endif %}
 {% endblock %}

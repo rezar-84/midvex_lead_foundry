@@ -4,6 +4,7 @@ import secrets
 from typing import cast
 
 import pyotp
+import segno
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -29,6 +30,7 @@ from .models import (
     OpportunityCandidate,
     ReviewDecision,
 )
+from .pagination import paginate
 
 
 def health(request: HttpRequest) -> HttpResponse:
@@ -57,8 +59,11 @@ def mfa_setup(request: HttpRequest) -> HttpResponse:
     uri = pyotp.TOTP(secret).provisioning_uri(
         name=request.user.get_username(), issuer_name="Midvex Lead Foundry"
     )
+    qr_data_uri = segno.make(uri, error="m").svg_data_uri(scale=4)
     return render(
-        request, "foundry/mfa_setup.html", {"form": form, "secret": secret, "provisioning_uri": uri}
+        request,
+        "foundry/mfa_setup.html",
+        {"form": form, "secret": secret, "provisioning_uri": uri, "qr_data_uri": qr_data_uri},
     )
 
 
@@ -102,7 +107,12 @@ def conversations(request: HttpRequest) -> HttpResponse:
     items = Conversation.objects.filter(organization=membership.organization).order_by(
         "-last_message_at"
     )
-    return render(request, "foundry/conversations.html", {"conversations": items})
+    page, querystring = paginate(request, items)
+    return render(
+        request,
+        "foundry/conversations.html",
+        {"conversations": page.object_list, "page_obj": page, "querystring": querystring},
+    )
 
 
 @login_required
@@ -114,7 +124,12 @@ def knowledge(request: HttpRequest) -> HttpResponse:
         .prefetch_related("contacts")
         .order_by("name")
     )
-    return render(request, "foundry/knowledge.html", {"companies": companies})
+    page, querystring = paginate(request, companies, per_page=24)
+    return render(
+        request,
+        "foundry/knowledge.html",
+        {"companies": page.object_list, "page_obj": page, "querystring": querystring},
+    )
 
 
 @login_required
@@ -126,10 +141,16 @@ def opportunities(request: HttpRequest) -> HttpResponse:
     items = OpportunityCandidate.objects.filter(organization=membership.organization)
     if status in valid:
         items = items.filter(status=status)
+    page, querystring = paginate(request, items.order_by("-score"), per_page=25)
     return render(
         request,
         "foundry/opportunities.html",
-        {"opportunities": items.order_by("-score"), "status": status},
+        {
+            "opportunities": page.object_list,
+            "status": status,
+            "page_obj": page,
+            "querystring": querystring,
+        },
     )
 
 
