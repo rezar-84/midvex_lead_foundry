@@ -1,3 +1,61 @@
-{% extends "foundry/base.html" %}{% block title %}Job {{ job.id }} · Lead Foundry{% endblock %}{% block content %}<a href="{% url 'project_jobs' project.id %}">← Jobs</a><p class="eyebrow">{{ job.get_kind_display }}</p><h1>Job details</h1>
-<section class="detail-grid"><article><h2>Progress</h2><progress class="large-progress" value="{{ job.progress_processed }}" max="{{ job.progress_total|default:1 }}">{{ job.progress_percent }}%</progress><dl><dt>Status</dt><dd>{{ job.get_status_display }}</dd><dt>Processed</dt><dd>{{ job.progress_processed }} / {{ job.progress_total }}</dd><dt>Errors</dt><dd>{{ job.error_count }}</dd><dt>Requests</dt><dd>{{ job.requests_used }}{% if job.request_budget %} / {{ job.request_budget }}{% endif %}</dd><dt>Started</dt><dd>{{ job.started_at|default:"Not started" }}</dd><dt>Finished</dt><dd>{{ job.finished_at|default:"Not finished" }}</dd></dl>{% if job.error_code %}<div class="warning">{{ job.error_code }}</div>{% endif %}</article><aside><h2>Configuration</h2><pre>{{ job.configuration }}</pre><p class="muted">Refresh this page to see worker progress.</p></aside></section>
-{% if items %}<h2>Entity results</h2><div class="table-wrap"><table><thead><tr><th>Type</th><th>Entity</th><th>Status</th><th>Output</th></tr></thead><tbody>{% for item in items %}<tr><td>{{ item.entity_type }}</td><td>{{ item.entity_id }}</td><td>{{ item.status }}{% if item.error_code %}<br><small>{{ item.error_code }}</small>{% endif %}</td><td>{{ item.output }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}{% endblock %}
+{% extends "foundry/base.html" %}
+{% load static %}
+{% block title %}Job {{ job.id }} · Lead Foundry{% endblock %}
+{% block content %}
+<a href="{% url 'project_jobs' project.id %}">← Jobs</a>
+<p class="eyebrow">{{ job.get_kind_display }}</p>
+<h1>Job details</h1>
+<section class="detail-grid"
+         data-job-status-url="{% url 'project_job_status' project.id job.id %}"
+         data-job-terminal="{{ job.is_terminal|yesno:'true,false' }}">
+  <article>
+    <h2>Progress</h2>
+    <progress class="large-progress" data-job-progress
+              value="{{ job.progress_processed }}"
+              max="{{ job.progress_total|default:1 }}">{{ job.progress_percent }}%</progress>
+    <dl>
+      <dt>Status</dt><dd data-job-field="status">{{ job.get_status_display }}</dd>
+      <dt>Processed</dt><dd data-job-field="processed">{{ job.progress_processed }} / {{ job.progress_total }}</dd>
+      <dt>Errors</dt><dd data-job-field="errors">{{ job.error_count }}</dd>
+      <dt>Requests</dt><dd data-job-field="requests">{{ job.requests_used }}{% if job.request_budget %} / {{ job.request_budget }}{% endif %}</dd>
+      <dt>Started</dt><dd>{{ job.started_at|default:"Not started" }}</dd>
+      <dt>Finished</dt><dd>{{ job.finished_at|default:"Not finished" }}</dd>
+    </dl>
+    {% if job.error_code %}<div class="warning">{{ job.error_code }}</div>{% endif %}
+    {% if not job.is_terminal and "run_batches" in capabilities %}
+    <form method="post" action="{% url 'project_job_cancel' project.id job.id %}" class="button-row">
+      {% csrf_token %}
+      <button type="submit">Cancel job</button>
+    </form>
+    {% endif %}
+  </article>
+  <aside>
+    <h2>Configuration</h2>
+    <pre>{{ job.configuration }}</pre>
+    {% if not job.is_terminal %}
+    <p class="muted" aria-live="polite">Progress updates automatically while the job runs.</p>
+    <noscript><p class="muted">Refresh this page to see worker progress.</p></noscript>
+    {% endif %}
+  </aside>
+</section>
+{% if items %}
+<h2>Entity results ({{ item_total }})</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Type</th><th>Entity</th><th>Status</th><th>Output</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.entity_type }}</td>
+        <td>{{ item.entity_id }}</td>
+        <td>{{ item.status }}{% if item.error_code %}<br><small>{{ item.error_code }}</small>{% endif %}</td>
+        <td>{{ item.output }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "foundry/includes/pagination.html" %}
+{% endif %}
+{% if not job.is_terminal %}<script src="{% static 'foundry/job-progress.js' %}" defer></script>{% endif %}
+{% endblock %}

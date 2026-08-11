@@ -530,6 +530,16 @@ class BatchJob(OrganizationOwnedModel):
         BLOCKED = "blocked", "Blocked"
         CANCELLED = "cancelled", "Cancelled"
 
+    TERMINAL_STATUSES = frozenset(
+        {
+            Status.SUCCEEDED,
+            Status.PARTIAL,
+            Status.FAILED,
+            Status.BLOCKED,
+            Status.CANCELLED,
+        }
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(LeadProject, on_delete=models.CASCADE, related_name="jobs")
     source = models.ForeignKey(
@@ -565,6 +575,10 @@ class BatchJob(OrganizationOwnedModel):
         if not self.progress_total:
             return 0
         return min(100, round(self.progress_processed * 100 / self.progress_total))
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in self.TERMINAL_STATUSES
 
 
 class BatchJobItem(OrganizationOwnedModel):

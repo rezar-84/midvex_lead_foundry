@@ -30,6 +30,124 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-018 — job lifecycle: transaction fix, live progress, cancellation, pagination
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `feat/MVX-018-job-progress-and-cancel`, merged to `main` with `--no-ff`
+
+### What changed
+
+Batch jobs are now observable and stoppable. The whole-run `@transaction.atomic`
+around `execute_analysis_job` is gone: each message commits in its own savepoint, so
+progress counters and partial results are visible while the job runs and survive a
+mid-run failure; the contact-metric rollup keeps a single atomic block of its own.
+All three executors check for cooperative cancellation (queued jobs are skipped
+outright; running jobs stop at a checkpoint every 10 messages, or per item for
+enrichment). New `job_cancel` POST view (capability `run_batches`) flips only
+queued/running jobs to `CANCELLED` via a conditional update, and a cancel button
+appears on the job detail page and jobs table. New `job_status` JSON endpoint plus a
+~45-line vanilla `job-progress.js` poll every 2.5 s and reload once the job reaches a
+terminal state; the "Refresh this page" copy moved into `<noscript>`. Jobs list and
+job-detail items paginate through a new shared `foundry/pagination.py` helper and
+`includes/pagination.html` (replacing the silent `[:100]` items slice with a page plus
+a real total). The membership context processor now also exposes the role's
+capability set to templates, so gating uses capabilities instead of role names.
+
+### Why
+
+The progress UI was lying twice: the analysis job's outer transaction made per-message
+progress writes invisible until commit, and the failure-path status write sat inside
+the possibly-broken transaction. Fixing that was a precondition for any live progress
+display. Vanilla JS was chosen over htmx: one polling surface, zero build step, one
+existing JS file as precedent — a dependency was not justified.
+
+### Verified
+
+```
+uv run ruff format --check .   → 39 files already formatted
+uv run ruff check .            → All checks passed!
+uv run mypy foundry lead_foundry → Success: no issues found in 30 source files
+uv run pytest -m 'not integration and not contract and not e2e' → 20 passed
+uv run pytest -m integration   → 2 passed
+uv run pytest -m contract      → 1 passed
+uv build                       → wheel + sdist built
+uv run bandit -q -r foundry lead_foundry → no findings
+uv run pip-audit               → no known vulnerabilities
+uv run python scripts/check_a11y.py → 26 templates passed
+uv run pytest -m e2e           → 2 passed
+uv run python manage.py check / makemigrations --check → clean, no schema drift
+```
+
+- [x] `checks.format` — Verified — 39 files formatted
+- [x] `checks.lint` — Verified — clean
+- [x] `checks.typecheck` — Verified — clean, 30 files
+- [x] `checks.unit` — Verified — 20 passed (7 new in `tests/test_job_lifecycle.py`)
+- [x] `checks.integration` — Verified — 2 passed
+- [x] `checks.contract` — Verified — 1 passed
+- [x] `checks.build` — Verified — sdist + wheel
+- [x] `checks.scan` — Verified — Bandit and pip-audit clean
+- [x] `checks.a11y` — Verified — 26 templates, static checks only
+- [x] `checks.e2e` — Verified — 2 passed
+- [ ] manual — **Not run** — no rendered browser session; polling and cancel are
+  covered by view tests and the JSON contract test, but the JS itself executed in no
+  browser. Browser verification remains MVX-008.
+
+### Not done
+
+- The JS poller is untested in a real browser (no browser matrix in this repo) → MVX-008.
+- Cancellation under a genuinely asynchronous worker is untested — local runs are
+  eager, so the cooperative checkpoint path is exercised only synthetically → MVX-008.
+- `_project_contacts` still materialises a list (pagination for contacts lands with
+  MVX-019).
+
+### Discovered
+
+- Intended behaviour change, asserted in tests: partial entities from a failed
+  analysis run now persist (jobs are PARTIAL-aware); previously the outer transaction
+  rolled everything back including the failure status itself.
+- `BatchJob.rate_limit_remaining` is written once at sync start and rendered nowhere
+  on the job detail page — left for MVX-021's vestigial-field review.
+
+### Decisions
+
+- Vanilla `fetch` poller over htmx (no new dependency for one surface) — recorded
+  here, no ADR: reversible in an afternoon.
+- Cancellation is cooperative-only; no worker kill. A running worker stops at its
+  next checkpoint. Queued jobs cancel immediately because executors check status
+  before starting.
+
+### Assumptions used
+
+- AR1 (single-approver) — this Tier 2 item needs no merge approval beyond review.
+
+### Plan
+
+Tier 2 plan (inline): fix the analysis transaction scope first, then add the cancel
+path (model already had the status), then the JSON endpoint + poller, then pagination
+— each step testable alone. Rejected: htmx (dependency not earned); meta-refresh
+(loses scroll position and hammers full page renders); killing workers via revoke
+(Celery revoke is unreliable with eager mode and prefetching).
+
+### Reviews
+
+- architect — Pass — savepoint-per-message keeps writes bounded; `_write_contact_metrics`
+  stays atomic as one rollup unit; conditional-update cancel avoids the race between a
+  cancel POST and `_finish` (the last writer is the worker, which re-reads status at
+  checkpoints); pagination helper clamps rather than 500s.
+- security — Pass with conditions — S3: `job_status`/`job_cancel` carry the same
+  `login+capability+org-scope` decorators as existing job views; foreign-org requests
+  404 (tested); cancel is POST+CSRF. Condition: when real async workers arrive
+  (MVX-008), re-review checkpoint frequency as a DoS surface.
+- qa — Pass — failure persistence, cancel happy/terminal/denied/foreign-org, JSON
+  contract and pagination clamp all covered; noted the JS itself is unexecuted (Not
+  done).
+- ux-designer — Pass with conditions — S3: live progress, cancel affordance and
+  `aria-live` status added; no rendered session was run (MVX-008); table gains an
+  Actions column only for roles that can act.
+- devops-sre — Pass — cooperative checkpoints keep workers interruptible without
+  broker-level revoke; eager-mode caveat documented in the cancel flash message.
+
 ## MVX-017 — governance close-out: approvals recorded, MVX-001/MVX-016 merged
 
 **Date:** 2026-08-12 **Tier:** 2

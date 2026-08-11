@@ -1,7 +1,9 @@
 from django.http import HttpRequest
 
-from .access import membership_for
+from .access import CAPABILITIES, membership_for
 
 
 def active_membership(request: HttpRequest) -> dict[str, object]:
-    return {"active_membership": membership_for(request)}
+    membership = membership_for(request)
+    capabilities = CAPABILITIES.get(membership.role, frozenset()) if membership else frozenset()
+    return {"active_membership": membership, "capabilities": capabilities}
