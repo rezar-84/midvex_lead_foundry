@@ -11,9 +11,18 @@ from .models import Membership
 
 CAPABILITIES: dict[str, frozenset[str]] = {
     Membership.Role.ADMIN: frozenset(
-        {"view", "review", "export", "manage_sources", "manage_users"}
+        {
+            "view",
+            "review",
+            "export",
+            "manage_sources",
+            "manage_users",
+            "manage_projects",
+            "run_batches",
+            "run_enrichment",
+        }
     ),
-    Membership.Role.ANALYST: frozenset({"view"}),
+    Membership.Role.ANALYST: frozenset({"view", "run_batches"}),
     Membership.Role.REVIEWER: frozenset({"view", "review"}),
     Membership.Role.EXPORTER: frozenset({"view", "export"}),
 }

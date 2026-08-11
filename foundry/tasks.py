@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from .gmail import iter_messages
 from .models import MailboxConnection, SyncRun
+from .operations import execute_analysis_job, execute_enrichment_job, execute_sync_job
 from .pipeline import ingest_rfc822
 
 
@@ -42,3 +43,18 @@ def sync_gmail(self: object, mailbox_id: str, max_messages: int = 500) -> dict[s
         run.finished_at = timezone.now()
         run.save(update_fields=["status", "finished_at", "updated_at"])
     return {"processed": run.processed_count, "errors": run.error_count}
+
+
+@shared_task  # type: ignore[untyped-decorator]
+def run_source_sync(job_id: str) -> None:
+    execute_sync_job(job_id)
+
+
+@shared_task  # type: ignore[untyped-decorator]
+def run_entity_analysis(job_id: str) -> None:
+    execute_analysis_job(job_id)
+
+
+@shared_task  # type: ignore[untyped-decorator]
+def run_entity_enrichment(job_id: str) -> None:
+    execute_enrichment_job(job_id)
