@@ -1,3 +1,23 @@
-{% extends "foundry/base.html" %}{% block title %}{{ heading }} · Lead Foundry{% endblock %}{% block content %}
-{% if project %}<a href="{% url 'project_detail' project.id %}">← {{ project.name }}</a>{% endif %}<p class="eyebrow">Project configuration</p><h1>{{ heading }}</h1>
-<div class="form-layout"><form method="post" class="panel">{% csrf_token %}{{ form.as_p }}<button>Save project</button></form><aside class="guidance"><h2>Before adding data</h2><ul><li>State a narrow business purpose.</li><li>Choose retention shorter than the source archive where possible.</li><li>Allowlist only public domains you are authorised to research.</li><li>Network execution remains a separate approval.</li></ul></aside></div>{% endblock %}
+{% extends "foundry/base.html" %}
+{% block title %}{{ heading }} · Lead Foundry{% endblock %}
+{% block content %}
+{% if project %}<a href="{% url 'project_detail' project.id %}">← {{ project.name }}</a>{% endif %}
+<p class="eyebrow">Project configuration</p>
+<h1>{{ heading }}</h1>
+<div class="form-layout">
+  <form method="post" class="panel">
+    {% csrf_token %}
+    {% include "foundry/includes/form_fields.html" %}
+    <button>Save project</button>
+  </form>
+  <aside class="guidance">
+    <h2>Before adding data</h2>
+    <ul>
+      <li>State a narrow business purpose.</li>
+      <li>Choose retention shorter than the source archive where possible.</li>
+      <li>Allowlist only public domains you are authorised to research.</li>
+      <li>Network execution remains a separate approval.</li>
+    </ul>
+  </aside>
+</div>
+{% endblock %}

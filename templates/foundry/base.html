@@ -21,7 +21,7 @@
         <a href="{% url 'opportunities' %}">Opportunities</a>
         <a href="{% url 'conversations' %}">Conversations</a>
         <a href="{% url 'knowledge' %}">Knowledge</a>
-        {% if active_membership.role == 'admin' %}<a href="{% url 'sources' %}">Sources</a>{% endif %}
+        {% if "manage_sources" in capabilities %}<a href="{% url 'sources' %}">Sources</a>{% endif %}
       </nav>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button">Sign out</button></form>
     {% endif %}

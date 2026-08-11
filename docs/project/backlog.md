@@ -10,7 +10,6 @@ last-reviewed: 2026-08-12
 
 | ID | Task | Tier | Owner role | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
-| MVX-019 | UI consistency: pagination, unified forms, capability-gated navigation, empty states, MFA QR | 2 | ux-designer | MVX-018 | Ready |
 | MVX-020 | White-label configuration and provisioning for single-tenant self-hosting | 1 | architect | MVX-019 | Ready |
 | MVX-021 | Configuration truth: wire or remove dead settings, label reserved models | 2 | architect | MVX-020 | Ready |
 
@@ -58,6 +57,7 @@ last-reviewed: 2026-08-12
 | MVX-016 | Operate projects, lead sources, batch entity processing and gated enrichment through the product UI | 1 | product-manager | MVX-001 | Done (approved under ADR 0007; real execution still subject to MVX-009/MVX-011) | 2026-08-12 |
 | MVX-017 | Record approvals, resolve U1, commit and merge MVX-001/MVX-016 | 2 | product-manager | — | Done | 2026-08-12 |
 | MVX-018 | Fix analysis-job transactions; add live job progress, cancellation and jobs pagination | 2 | architect | MVX-017 | Done | 2026-08-12 |
+| MVX-019 | UI consistency: pagination, unified forms, capability-gated navigation, empty states, MFA QR | 2 | ux-designer | MVX-018 | Done | 2026-08-12 |
 
 ## Dropped
 

@@ -1,2 +1,28 @@
-{% extends "foundry/base.html" %}{% block title %}Conversations · Lead Foundry{% endblock %}{% block content %}<p class="eyebrow">Evidence index</p><h1>Conversations</h1>
-<div class="table-wrap"><table><thead><tr><th>Subject</th><th>Last message</th><th>Messages</th></tr></thead><tbody>{% for item in conversations %}<tr><td>{{ item.subject|default:"No subject" }}</td><td>{{ item.last_message_at|default:"Unknown" }}</td><td>{{ item.conversation_messages.count }}</td></tr>{% empty %}<tr><td colspan="3">No conversations imported.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends "foundry/base.html" %}
+{% block title %}Conversations · Lead Foundry{% endblock %}
+{% block content %}
+<p class="eyebrow">Evidence index</p>
+<h1>Conversations</h1>
+{% if conversations %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Subject</th><th>Last message</th><th>Messages</th></tr></thead>
+    <tbody>
+      {% for item in conversations %}
+      <tr>
+        <td>{{ item.subject|default:"No subject" }}</td>
+        <td>{{ item.last_message_at|default:"Unknown" }}</td>
+        <td>{{ item.conversation_messages.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "foundry/includes/pagination.html" %}
+{% else %}
+<section class="empty-state">
+  <h2>No conversations imported</h2>
+  <p>Connect a source and run a sync to build the evidence index.</p>
+</section>
+{% endif %}
+{% endblock %}

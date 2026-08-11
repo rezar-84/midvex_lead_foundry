@@ -12,3 +12,32 @@
   font-size: 0.9rem;
 }
 
+.filters a[aria-current="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.field-invalid input,
+.field-invalid textarea,
+.field-invalid select {
+  border-color: #a33;
+}
+
+.errorlist {
+  color: #a33;
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
+
+img.qr {
+  display: block;
+  margin: 0.75rem 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+

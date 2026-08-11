@@ -1,3 +1,82 @@
-{% extends "foundry/base.html" %}{% block title %}Contacts · {{ project.name }}{% endblock %}{% block content %}<p class="eyebrow">Entity graph</p><h1>Contacts</h1>{% include "foundry/projects/_project_nav.html" %}
-<form method="post" action="{% url 'project_enrichment_start' project.id %}">{% csrf_token %}<div class="table-wrap"><table><thead><tr><th><span class="sr-only">Select</span></th><th>Contact</th><th>Roles, products and tags</th><th>History</th><th>Topics</th><th>Quality</th></tr></thead><tbody>{% for row in rows %}<tr><td><input type="checkbox" name="contact_ids" value="{{ row.contact.id }}" aria-label="Select {{ row.contact.display_name|default:row.contact.primary_email }}"></td><td><strong><a href="{% url 'project_contact_detail' project.id row.contact.id %}">{{ row.contact.display_name|default:"Unknown name" }}</a></strong><br>{{ row.contact.primary_email }}{% if row.contact.company %}<br><small>{{ row.contact.company.name }}</small>{% endif %}</td><td>{% for relation, product in row.relationships %}<span class="tag">{{ relation.relationship_type }} · {{ product.canonical_name }}</span>{% endfor %}{% for tag in row.tags %}<span class="tag" style="border-color:{{ tag.color }}">{{ tag.name }}</span>{% empty %}{% if not row.relationships %}—{% endif %}{% endfor %}</td><td>{% if row.metric %}{{ row.metric.contact_count }} contacts<br><small>Last {{ row.metric.last_contact_at|date:"Y-m-d"|default:"unknown" }} · every {{ row.metric.frequency_days|default:"?" }} days · {{ row.metric.sentiment }}</small>{% else %}Not analysed{% endif %}</td><td>{% if row.metric %}{% for topic in row.metric.main_topics %}<span class="tag">{{ topic }}</span>{% empty %}—{% endfor %}{% else %}—{% endif %}</td><td>{% if row.metric %}{{ row.metric.quality_score }}/100<br><small>{{ row.metric.scoring_version }}</small>{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="6">Run a source sync and entity analysis to create contacts.</td></tr>{% endfor %}</tbody></table></div>
-{% if active_membership.role == 'admin' and rows %}<section class="bulk-bar"><div><strong>Selected contacts</strong><br><small>Enrichment fields remain review candidates.</small></div><label>Tag {{ tag_form.tag_id }}</label><button class="secondary" formaction="{% url 'project_contact_tag_assign' project.id %}">Assign tag</button><label>Budget {{ form.request_budget }}</label><label>{{ form.confirm_scope }} Approved public scope</label><button>Start enrichment</button></section>{% endif %}</form>{% endblock %}
+{% extends "foundry/base.html" %}
+{% block title %}Contacts · {{ project.name }}{% endblock %}
+{% block content %}
+<p class="eyebrow">Entity graph</p>
+<h1>Contacts</h1>
+{% include "foundry/projects/_project_nav.html" %}
+{% if form.errors or tag_form.errors %}
+<div class="warning" role="alert">
+  {{ form.non_field_errors }}{{ tag_form.non_field_errors }}
+  {{ form.contact_ids.errors }}{{ form.request_budget.errors }}{{ form.confirm_scope.errors }}
+  {{ tag_form.contact_ids.errors }}{{ tag_form.tag_id.errors }}
+</div>
+{% endif %}
+{% if rows %}
+<form method="post"
+      action="{% if 'run_enrichment' in capabilities %}{% url 'project_enrichment_start' project.id %}{% else %}{% url 'project_contact_tag_assign' project.id %}{% endif %}">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><span class="sr-only">Select</span></th>
+          <th>Contact</th>
+          <th>Roles, products and tags</th>
+          <th>History</th>
+          <th>Topics</th>
+          <th>Quality</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><input type="checkbox" name="contact_ids" value="{{ row.contact.id }}"
+                     {% if row.contact.id|stringformat:"s" in selected_ids %}checked{% endif %}
+                     aria-label="Select {{ row.contact.display_name|default:row.contact.primary_email }}"></td>
+          <td>
+            <strong><a href="{% url 'project_contact_detail' project.id row.contact.id %}">{{ row.contact.display_name|default:"Unknown name" }}</a></strong>
+            <br>{{ row.contact.primary_email }}
+            {% if row.contact.company %}<br><small>{{ row.contact.company.name }}</small>{% endif %}
+          </td>
+          <td>
+            {% for relation, product in row.relationships %}<span class="tag">{{ relation.relationship_type }} · {{ product.canonical_name }}</span>{% endfor %}
+            {% for tag in row.tags %}<span class="tag" style="border-color:{{ tag.color }}">{{ tag.name }}</span>{% empty %}{% if not row.relationships %}—{% endif %}{% endfor %}
+          </td>
+          <td>
+            {% if row.metric %}{{ row.metric.contact_count }} contacts<br>
+            <small>Last {{ row.metric.last_contact_at|date:"Y-m-d"|default:"unknown" }} · every {{ row.metric.frequency_days|default:"?" }} days · {{ row.metric.sentiment }}</small>
+            {% else %}Not analysed{% endif %}
+          </td>
+          <td>{% if row.metric %}{% for topic in row.metric.main_topics %}<span class="tag">{{ topic }}</span>{% empty %}—{% endfor %}{% else %}—{% endif %}</td>
+          <td>{% if row.metric %}{{ row.metric.quality_score }}/100<br><small>{{ row.metric.scoring_version }}</small>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if "run_batches" in capabilities or "run_enrichment" in capabilities %}
+  <section class="bulk-bar">
+    <div>
+      <strong>Selected contacts</strong><br>
+      <small>Enrichment fields remain review candidates.</small>
+    </div>
+    {% if "run_batches" in capabilities %}
+    <label>Tag {{ tag_form.tag_id }}</label>
+    <button class="secondary" formaction="{% url 'project_contact_tag_assign' project.id %}">Assign tag</button>
+    {% endif %}
+    {% if "run_enrichment" in capabilities %}
+    <label>Budget {{ form.request_budget }}</label>
+    <label>{{ form.confirm_scope }} Approved public scope</label>
+    <button formaction="{% url 'project_enrichment_start' project.id %}">Start enrichment</button>
+    {% endif %}
+  </section>
+  {% endif %}
+</form>
+{% include "foundry/includes/pagination.html" %}
+{% else %}
+<section class="empty-state">
+  <h2>No contacts yet</h2>
+  <p>Run a source sync and entity analysis to create contacts.</p>
+</section>
+{% endif %}
+{% endblock %}
