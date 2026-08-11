@@ -1,0 +1,5 @@
+{% extends "foundry/base.html" %}{% block title %}Opportunities · Lead Foundry{% endblock %}{% block content %}
+<div class="page-head"><div><p class="eyebrow">Human review queue</p><h1>Opportunities</h1><p>Every candidate is a suggestion until a reviewer decides.</p></div>
+{% if active_membership.role == 'admin' or active_membership.role == 'exporter' %}<form method="post" action="{% url 'export_csv' %}">{% csrf_token %}<button class="secondary">Export accepted CSV</button></form>{% endif %}</div>
+<nav class="filters" aria-label="Candidate status"><a href="?status=pending">Pending</a><a href="?status=accepted">Accepted</a><a href="?status=rejected">Rejected</a><a href="?status=deferred">Deferred</a></nav>
+{% include "foundry/_opportunity_table.html" %}{% endblock %}

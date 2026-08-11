@@ -1,0 +1,30 @@
+{% load static %}<!doctype html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Lead Foundry{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'foundry/app.css' %}">
+  <link rel="stylesheet" href="{% static 'foundry/knowledge.css' %}">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="{% url 'dashboard' %}">MIDVEX <span>Lead Foundry</span></a>
+    {% if user.is_authenticated %}
+      <nav aria-label="Primary">
+        <a href="{% url 'dashboard' %}">Overview</a>
+        <a href="{% url 'opportunities' %}">Opportunities</a>
+        <a href="{% url 'conversations' %}">Conversations</a>
+        <a href="{% url 'knowledge' %}">Knowledge</a>
+        {% if active_membership.role == 'admin' %}<a href="{% url 'sources' %}">Sources</a>{% endif %}
+      </nav>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button">Sign out</button></form>
+    {% endif %}
+  </header>
+  <main id="main" class="container">
+    {% for message in messages %}<div class="notice" role="status">{{ message }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

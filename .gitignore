@@ -1,0 +1,14 @@
+.env
+.venv/
+.raw-evidence/
+db.sqlite3
+staticfiles/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage

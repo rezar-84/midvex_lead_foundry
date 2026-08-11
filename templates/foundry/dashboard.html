@@ -1,0 +1,9 @@
+{% extends "foundry/base.html" %}{% block content %}
+<div class="page-head"><div><p class="eyebrow">Relationship intelligence</p><h1>Review what may have been missed</h1></div></div>
+<section class="metrics" aria-label="Workspace summary">
+  <article><strong>{{ pending_count }}</strong><span>Awaiting review</span></article>
+  <article><strong>{{ accepted_count }}</strong><span>Accepted leads</span></article>
+  <article><strong>{{ conversation_count }}</strong><span>Conversations</span></article>
+</section>
+<section><div class="section-head"><h2>Recent candidates</h2><a href="{% url 'opportunities' %}">View queue</a></div>
+{% include "foundry/_opportunity_table.html" with opportunities=recent %}</section>{% endblock %}
