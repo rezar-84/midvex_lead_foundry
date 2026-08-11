@@ -1,0 +1,16 @@
+.enrichment-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.enrichment-card form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: start;
+}

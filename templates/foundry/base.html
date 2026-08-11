@@ -6,6 +6,9 @@
   <title>{% block title %}Lead Foundry{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'foundry/app.css' %}">
   <link rel="stylesheet" href="{% static 'foundry/knowledge.css' %}">
+  <link rel="stylesheet" href="{% static 'foundry/operations.css' %}">
+  <link rel="stylesheet" href="{% static 'foundry/controls.css' %}">
+  <link rel="stylesheet" href="{% static 'foundry/enrichment.css' %}">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -14,6 +17,7 @@
     {% if user.is_authenticated %}
       <nav aria-label="Primary">
         <a href="{% url 'dashboard' %}">Overview</a>
+        <a href="{% url 'project_list' %}">Projects</a>
         <a href="{% url 'opportunities' %}">Opportunities</a>
         <a href="{% url 'conversations' %}">Conversations</a>
         <a href="{% url 'knowledge' %}">Knowledge</a>
