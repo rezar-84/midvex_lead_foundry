@@ -84,3 +84,21 @@ def test_attachment_fails_closed_without_scanner(workspace, settings, tmp_path):
     assert result.message.safety_status == SourceMessage.Safety.QUARANTINED
     assert result.message.attachments.get().scan_status == "scanner_unavailable"
     assert result.opportunity is None
+
+
+@pytest.mark.django_db
+def test_oversize_message_rejection_is_setting_driven(workspace, settings, tmp_path):
+    _, _, _, mailbox = workspace
+    settings.RAW_STORAGE_BACKEND = "filesystem"
+    settings.RAW_STORAGE_ROOT = tmp_path
+    settings.MAX_MESSAGE_BYTES = 128
+    raw = (
+        b"From: Buyer <buyer@example.test>\r\nTo: sales@internal.test\r\n"
+        b"Subject: Pricing request\r\n\r\n" + b"x" * 200
+    )
+
+    with pytest.raises(ValueError, match="configured size limit"):
+        ingest_rfc822(mailbox, "too-big", raw)
+
+    settings.MAX_MESSAGE_BYTES = 25 * 1024 * 1024
+    assert ingest_rfc822(mailbox, "fits-now", raw).created is True

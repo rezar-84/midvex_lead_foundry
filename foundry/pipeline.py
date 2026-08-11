@@ -10,6 +10,7 @@ from email.message import EmailMessage
 from email.parser import BytesParser
 from email.utils import getaddresses, parsedate_to_datetime
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -115,7 +116,7 @@ def ingest_rfc822(
     provider_thread_id: str = "",
     profile: CompiledProfile | None = None,
 ) -> IngestResult:
-    if len(raw) > 25 * 1024 * 1024:
+    if len(raw) > settings.MAX_MESSAGE_BYTES:
         raise ValueError("Message exceeds the configured size limit")
     existing = SourceMessage.objects.filter(
         mailbox=mailbox, provider_message_id=provider_message_id

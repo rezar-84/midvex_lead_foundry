@@ -18,6 +18,11 @@ Every domain table carries an immutable organisation owner. Cross-organisation r
 | Taxonomy | ProjectEntity, Tag/EntityTag, EntityRelationship, ContactMetric | project-scoped; rebuild metrics, preserve reviewed tags | yes/inferred |
 | Enrichment | ExtractionProfile, EnrichmentResult | URL/hash provenance; candidate review; project budget/allowlist. ExtractionProfile (entity type `message`) overrides the shipped extraction rules per project; absence means the code defaults in `foundry/heuristics.py` apply. | yes/inferred |
 | Review | OpportunityCandidate, ReviewDecision, Digest | versioned; retain audit under policy | yes/inferred |
+
+**Reserved (schema exists, no writer yet):** `ModelRun` and `Digest` belong to
+MVX-006, `ResearchArtifact` to MVX-011; `BatchJob.configuration`/
+`rate_limit_remaining` to MVX-010 and `ProjectEntity.review_status` to MVX-005.
+Dropping any of them is destructive and deferred to MVX-022.
 | Integration | ModelRun, ResearchArtifact, ExportBatch/Record | provider/policy-bound | yes |
 | Audit | AuditEvent | append-only in application; separately retained | operational |
 

@@ -10,7 +10,6 @@ last-reviewed: 2026-08-12
 
 | ID | Task | Tier | Owner role | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
-| MVX-021 | Configuration truth: wire or remove dead settings, label reserved models | 2 | architect | MVX-020 | Ready |
 
 ## Next
 
@@ -58,6 +57,7 @@ last-reviewed: 2026-08-12
 | MVX-018 | Fix analysis-job transactions; add live job progress, cancellation and jobs pagination | 2 | architect | MVX-017 | Done | 2026-08-12 |
 | MVX-019 | UI consistency: pagination, unified forms, capability-gated navigation, empty states, MFA QR | 2 | ux-designer | MVX-018 | Done | 2026-08-12 |
 | MVX-020 | White-label configuration and provisioning for single-tenant self-hosting | 1 | architect | MVX-019 | Done (approved under ADR 0007) | 2026-08-12 |
+| MVX-021 | Configuration truth: wire or remove dead settings, label reserved models | 2 | architect | MVX-020 | Done | 2026-08-12 |
 
 ## Dropped
 

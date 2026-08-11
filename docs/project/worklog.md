@@ -30,6 +30,89 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-021 — configuration truth and dead-code labelling
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `chore/MVX-021-config-cleanup`, merged to `main` with `--no-ff`
+
+### What changed
+
+Settings now promise only what exists. `MAX_MESSAGE_BYTES` is actually enforced
+(`pipeline.ingest_rfc822` read a hardcoded 25 MB before). The unread
+`RSPAMD_URL`/`CLAMAV_*`, `MAX_ATTACHMENT_BYTES` and the whole `AI_*` block are
+deleted from settings and `.env.example` — there is no LLM call in this codebase
+and no scanner client; MVX-004/MVX-006 reintroduce those settings together with
+real consumers. The orphaned `sync_gmail` Celery task (no caller since the
+project-scoped sync path replaced it) is removed; MVX-003 will reintroduce a
+checkpointed variant. The reserved models (`ModelRun`, `Digest`,
+`ResearchArtifact`) and vestigial fields (`BatchJob.configuration`,
+`rate_limit_remaining`, `ProjectEntity.review_status`) carry docstrings naming
+their owning future item, and `data-model-api.md` lists them as reserved —
+dropping them is destructive and stays in MVX-022.
+
+### Why
+
+Dead configuration reads as capability: an operator seeing `AI_API_KEY` and
+`CLAMAV_HOST` in `.env.example` would reasonably believe scanning and AI ranking
+exist. For a white-label product that is a truthfulness bug, not just clutter.
+
+### Verified
+
+```
+uv run ruff format --check . / ruff check . / mypy → all clean (32 source files)
+uv run pytest → 40 passed (1 new: oversize rejection driven by the setting)
+uv build → wheel + sdist; bandit → no findings; pip-audit → clean
+uv run python scripts/check_a11y.py → 27 templates
+uv run python manage.py check / makemigrations --check → clean; docstrings add no migration
+```
+
+- [x] `checks.format` — Verified · [x] `checks.lint` — Verified · [x] `checks.typecheck` — Verified
+- [x] `checks.unit`/`integration`/`contract`/`e2e` — Verified — within 40-passed full run
+- [x] `checks.build` — Verified · [x] `checks.scan` — Verified · [x] `checks.a11y` — Verified — static only
+- [ ] manual — **Not run** — no browser session needed for this change.
+
+### Not done
+
+- Dropping reserved schema and honouring `retention_days` (purge job) → MVX-022 (Tier 1, data deletion).
+- ADRs 0001–0004 still carry `Status: Proposed` in an older front-matter format — left untouched: rewriting decision records requires the accountable human's explicit call; flagged here instead.
+
+### Discovered
+
+- `SECRET_KEY`/`TOKEN_ENCRYPTION_KEY` DEBUG fallbacks already hard-fail when
+  `DJANGO_DEBUG=false` (settings.py raises; crypto derives only in DEBUG/TESTING) —
+  checked and acceptable for self-hosting; no change needed.
+- `BatchJob.configuration` is rendered on the job detail page but never written —
+  the display shows an always-empty dict; left as-is and labelled (MVX-010 owns it).
+
+### Decisions
+
+- Delete-and-reintroduce over keep-and-document for unread settings: a setting with
+  no consumer cannot be verified, so its presence violates the evidence rules. No
+  ADR — reversible trivially.
+
+### Assumptions used
+
+- MVX-004/MVX-006/MVX-010/MVX-011 remain the owning items for the reserved schema;
+  if those are dropped, MVX-022 should remove the schema too.
+
+### Plan
+
+Tier 2 plan (inline): wire the one hardcoded limit to its setting with a test;
+delete unread settings and scrub `.env.example`; remove the uncalled task; label —
+never delete — reserved models. Rejected: dropping the dead tables now (destructive
+migration → Tier 1, out of scope).
+
+### Reviews
+
+- architect — Pass — grep-verified no consumer for each deleted setting and no
+  caller for `sync_gmail` (`iter_messages` retains its live consumer in
+  `connectors.py`); reserved-schema labels point at real backlog items.
+- security — Pass — removing unused credential-shaped settings (`AI_API_KEY`)
+  shrinks the secret surface; size-limit enforcement now testable and tested.
+- devops-sre — Pass — `.env.example` matches settings exactly; no compose services
+  referenced the removed endpoints.
+
 ## MVX-020 — white-label configuration and provisioning
 
 **Date:** 2026-08-12 **Tier:** 1
