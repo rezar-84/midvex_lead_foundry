@@ -65,6 +65,16 @@ urlpatterns = [
         name="project_job_detail",
     ),
     path(
+        "projects/<uuid:project_id>/jobs/<uuid:job_id>/status/",
+        project_views.job_status,
+        name="project_job_status",
+    ),
+    path(
+        "projects/<uuid:project_id>/jobs/<uuid:job_id>/cancel/",
+        project_views.job_cancel,
+        name="project_job_cancel",
+    ),
+    path(
         "projects/<uuid:project_id>/contacts/",
         project_views.project_contacts,
         name="project_contacts",

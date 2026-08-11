@@ -3,3 +3,12 @@
   align-items: center;
   gap: 0.6rem;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+

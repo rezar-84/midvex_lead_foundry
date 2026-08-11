@@ -65,6 +65,9 @@ def _mailbox_for(source: LeadSource) -> MailboxConnection:
     return mailbox
 
 
+CANCEL_CHECK_INTERVAL = 10
+
+
 def _finish(job: BatchJob, status: str, error_code: str = "") -> None:
     job.status = status
     job.error_code = error_code
@@ -72,8 +75,17 @@ def _finish(job: BatchJob, status: str, error_code: str = "") -> None:
     job.save(update_fields=["status", "error_code", "finished_at", "updated_at"])
 
 
+def _cancel_requested(job: BatchJob) -> bool:
+    return (
+        BatchJob.objects.filter(id=job.id).values_list("status", flat=True).first()
+        == BatchJob.Status.CANCELLED
+    )
+
+
 def execute_sync_job(job_id: str) -> None:
     job = BatchJob.objects.select_related("project", "source", "organization").get(id=job_id)
+    if job.status == BatchJob.Status.CANCELLED:
+        return
     if job.kind != BatchJob.Kind.SYNC or not job.source:
         _finish(job, BatchJob.Status.FAILED, "INVALID_SYNC_JOB")
         return
@@ -88,6 +100,14 @@ def execute_sync_job(job_id: str) -> None:
     try:
         mailbox = _mailbox_for(source)
         for envelope in iter_source(source):
+            if (
+                job.progress_processed
+                and job.progress_processed % CANCEL_CHECK_INTERVAL == 0
+                and _cancel_requested(job)
+            ):
+                source.status = LeadSource.Status.READY
+                source.save(update_fields=["status", "sync_cursor", "updated_at"])
+                return
             result = ingest_rfc822(
                 mailbox,
                 envelope.provider_message_id,
@@ -170,9 +190,54 @@ def _message_contacts(job: BatchJob, message: SourceMessage) -> list[Contact]:
     )
 
 
-@transaction.atomic
+def _analyze_message(job: BatchJob, message: SourceMessage, contacts: list[Contact]) -> None:
+    for contact in contacts:
+        ProjectEntity.objects.get_or_create(
+            organization=job.organization,
+            project=job.project,
+            entity_type="contact",
+            entity_id=contact.id,
+        )
+    text = f"{message.subject}\n{message.body_text}"
+    product_match = PRODUCT_PATTERN.search(text)
+    if product_match:
+        product_name = " ".join(product_match.group(1).split()).title()
+        product, _ = ProductConcept.objects.get_or_create(
+            organization=job.organization,
+            canonical_name=product_name,
+            defaults={"status": "candidate", "aliases": []},
+        )
+        ProjectEntity.objects.get_or_create(
+            organization=job.organization,
+            project=job.project,
+            entity_type="product",
+            entity_id=product.id,
+        )
+        for contact in contacts:
+            role = "buyer" if message.direction == SourceMessage.Direction.INBOUND else "prospect"
+            for candidate_role, pattern in ROLE_TERMS.items():
+                if pattern.search(text):
+                    role = candidate_role
+                    break
+            EntityRelationship.objects.get_or_create(
+                organization=job.organization,
+                project=job.project,
+                source_type="contact",
+                source_id=contact.id,
+                target_type="product",
+                target_id=product.id,
+                relationship_type=role,
+                defaults={
+                    "confidence": Decimal("0.6000"),
+                    "evidence_message": message,
+                },
+            )
+
+
 def execute_analysis_job(job_id: str) -> None:
     job = BatchJob.objects.select_related("project", "organization").get(id=job_id)
+    if job.status == BatchJob.Status.CANCELLED:
+        return
     job.status = BatchJob.Status.RUNNING
     job.started_at = timezone.now()
     job.save(update_fields=["status", "started_at", "updated_at"])
@@ -181,107 +246,76 @@ def execute_analysis_job(job_id: str) -> None:
     job.save(update_fields=["progress_total", "updated_at"])
     try:
         contact_messages: dict[UUID, list[SourceMessage]] = {}
-        for message in messages:
+        for index, message in enumerate(messages):
+            if index and index % CANCEL_CHECK_INTERVAL == 0 and _cancel_requested(job):
+                return
             contacts = _message_contacts(job, message)
             for contact in contacts:
                 contact_messages.setdefault(contact.id, []).append(message)
-                ProjectEntity.objects.get_or_create(
-                    organization=job.organization,
-                    project=job.project,
-                    entity_type="contact",
-                    entity_id=contact.id,
-                )
-            text = f"{message.subject}\n{message.body_text}"
-            product_match = PRODUCT_PATTERN.search(text)
-            if product_match:
-                product_name = " ".join(product_match.group(1).split()).title()
-                product, _ = ProductConcept.objects.get_or_create(
-                    organization=job.organization,
-                    canonical_name=product_name,
-                    defaults={"status": "candidate", "aliases": []},
-                )
-                ProjectEntity.objects.get_or_create(
-                    organization=job.organization,
-                    project=job.project,
-                    entity_type="product",
-                    entity_id=product.id,
-                )
-                for contact in contacts:
-                    role = (
-                        "buyer"
-                        if message.direction == SourceMessage.Direction.INBOUND
-                        else "prospect"
-                    )
-                    for candidate_role, pattern in ROLE_TERMS.items():
-                        if pattern.search(text):
-                            role = candidate_role
-                            break
-                    EntityRelationship.objects.get_or_create(
-                        organization=job.organization,
-                        project=job.project,
-                        source_type="contact",
-                        source_id=contact.id,
-                        target_type="product",
-                        target_id=product.id,
-                        relationship_type=role,
-                        defaults={
-                            "confidence": Decimal("0.6000"),
-                            "evidence_message": message,
-                        },
-                    )
+            # Each message commits on its own so progress and partial results
+            # survive a mid-run failure or cancellation.
+            with transaction.atomic():
+                _analyze_message(job, message, contacts)
             job.progress_processed += 1
             job.save(update_fields=["progress_processed", "updated_at"])
 
-        for contact_id, related_messages in contact_messages.items():
-            contact = Contact.objects.get(id=contact_id, organization=job.organization)
-            dates = [item.sent_at for item in related_messages if item.sent_at]
-            combined = "\n".join(f"{item.subject}\n{item.body_text}" for item in related_messages)
-            topic_counts = Counter(
-                topic for topic, pattern in TOPICS.items() for _ in pattern.finditer(combined)
-            )
-            positives = len(POSITIVE.findall(combined))
-            negatives = len(NEGATIVE.findall(combined))
-            sentiment = (
-                "positive"
-                if positives > negatives
-                else "negative"
-                if negatives > positives
-                else "neutral"
-            )
-            outcome_match = OUTCOME.search(combined)
-            frequency = None
-            if len(dates) > 1:
-                span = max(dates) - min(dates)
-                frequency = Decimal(str(round(span.total_seconds() / 86400 / (len(dates) - 1), 2)))
-            inbound = sum(
-                item.direction == SourceMessage.Direction.INBOUND for item in related_messages
-            )
-            outbound = sum(
-                item.direction == SourceMessage.Direction.OUTBOUND for item in related_messages
-            )
-            quality = min(
-                Decimal("100"), Decimal(len(related_messages) * 8 + bool(outcome_match) * 25)
-            )
-            ContactMetric.objects.update_or_create(
-                organization=job.organization,
-                project=job.project,
-                contact=contact,
-                defaults={
-                    "contact_count": len(related_messages),
-                    "inbound_count": inbound,
-                    "outbound_count": outbound,
-                    "first_contact_at": min(dates) if dates else None,
-                    "last_contact_at": max(dates) if dates else None,
-                    "frequency_days": frequency,
-                    "main_topics": [topic for topic, _ in topic_counts.most_common(5)],
-                    "latest_outcome": outcome_match.group(0) if outcome_match else "",
-                    "sentiment": sentiment,
-                    "quality_score": quality,
-                },
-            )
+        if _cancel_requested(job):
+            return
+        _write_contact_metrics(job, contact_messages)
         _finish(job, BatchJob.Status.SUCCEEDED)
     except Exception as exc:
         _finish(job, BatchJob.Status.FAILED, type(exc).__name__.upper()[:100])
+
+
+@transaction.atomic
+def _write_contact_metrics(
+    job: BatchJob, contact_messages: dict[UUID, list[SourceMessage]]
+) -> None:
+    for contact_id, related_messages in contact_messages.items():
+        contact = Contact.objects.get(id=contact_id, organization=job.organization)
+        dates = [item.sent_at for item in related_messages if item.sent_at]
+        combined = "\n".join(f"{item.subject}\n{item.body_text}" for item in related_messages)
+        topic_counts = Counter(
+            topic for topic, pattern in TOPICS.items() for _ in pattern.finditer(combined)
+        )
+        positives = len(POSITIVE.findall(combined))
+        negatives = len(NEGATIVE.findall(combined))
+        sentiment = (
+            "positive"
+            if positives > negatives
+            else "negative"
+            if negatives > positives
+            else "neutral"
+        )
+        outcome_match = OUTCOME.search(combined)
+        frequency = None
+        if len(dates) > 1:
+            span = max(dates) - min(dates)
+            frequency = Decimal(str(round(span.total_seconds() / 86400 / (len(dates) - 1), 2)))
+        inbound = sum(
+            item.direction == SourceMessage.Direction.INBOUND for item in related_messages
+        )
+        outbound = sum(
+            item.direction == SourceMessage.Direction.OUTBOUND for item in related_messages
+        )
+        quality = min(Decimal("100"), Decimal(len(related_messages) * 8 + bool(outcome_match) * 25))
+        ContactMetric.objects.update_or_create(
+            organization=job.organization,
+            project=job.project,
+            contact=contact,
+            defaults={
+                "contact_count": len(related_messages),
+                "inbound_count": inbound,
+                "outbound_count": outbound,
+                "first_contact_at": min(dates) if dates else None,
+                "last_contact_at": max(dates) if dates else None,
+                "frequency_days": frequency,
+                "main_topics": [topic for topic, _ in topic_counts.most_common(5)],
+                "latest_outcome": outcome_match.group(0) if outcome_match else "",
+                "sentiment": sentiment,
+                "quality_score": quality,
+            },
+        )
 
 
 def _contact_url(contact: Contact) -> str | None:
@@ -299,6 +333,8 @@ def execute_enrichment_job(
     network_enabled: bool | None = None,
 ) -> None:
     job = BatchJob.objects.select_related("project", "organization").get(id=job_id)
+    if job.status == BatchJob.Status.CANCELLED:
+        return
     enabled = job.project.network_execution_enabled if network_enabled is None else network_enabled
     if not enabled:
         _finish(job, BatchJob.Status.BLOCKED, "NETWORK_POLICY_BLOCK")
@@ -308,6 +344,8 @@ def execute_enrichment_job(
     job.progress_total = job.items.count()
     job.save()
     for item in job.items.all():
+        if _cancel_requested(job):
+            return
         if job.requests_used >= job.request_budget:
             item.status = "blocked"
             item.error_code = "BUDGET_EXHAUSTED"

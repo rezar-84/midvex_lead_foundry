@@ -8,8 +8,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.text import slugify
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -39,6 +40,7 @@ from .models import (
     ProjectEntity,
     Tag,
 )
+from .pagination import paginate
 from .tasks import run_entity_analysis, run_entity_enrichment, run_source_sync
 
 
@@ -297,10 +299,16 @@ def analysis_start(request: HttpRequest, project_id: str) -> HttpResponse:
 @require_capability("view")
 def job_list(request: HttpRequest, project_id: str) -> HttpResponse:
     project = _project(request, project_id)
+    page, querystring = paginate(request, project.jobs.order_by("-created_at"), per_page=25)
     return render(
         request,
         "foundry/projects/jobs.html",
-        {"project": project, "jobs": project.jobs.order_by("-created_at")},
+        {
+            "project": project,
+            "jobs": page.object_list,
+            "page_obj": page,
+            "querystring": querystring,
+        },
     )
 
 
@@ -309,11 +317,63 @@ def job_list(request: HttpRequest, project_id: str) -> HttpResponse:
 def job_detail(request: HttpRequest, project_id: str, job_id: str) -> HttpResponse:
     project = _project(request, project_id)
     job = get_object_or_404(BatchJob, project=project, id=job_id)
+    page, querystring = paginate(request, job.items.order_by("created_at"))
     return render(
         request,
         "foundry/projects/job_detail.html",
-        {"project": project, "job": job, "items": job.items.order_by("created_at")[:100]},
+        {
+            "project": project,
+            "job": job,
+            "items": page.object_list,
+            "item_total": page.paginator.count,
+            "page_obj": page,
+            "querystring": querystring,
+        },
     )
+
+
+@login_required
+@require_capability("view")
+def job_status(request: HttpRequest, project_id: str, job_id: str) -> JsonResponse:
+    project = _project(request, project_id)
+    job = get_object_or_404(BatchJob, project=project, id=job_id)
+    return JsonResponse(
+        {
+            "status": job.status,
+            "status_display": job.get_status_display(),
+            "processed": job.progress_processed,
+            "total": job.progress_total,
+            "percent": job.progress_percent,
+            "error_count": job.error_count,
+            "requests_used": job.requests_used,
+            "request_budget": job.request_budget,
+            "error_code": job.error_code,
+            "terminal": job.is_terminal,
+        }
+    )
+
+
+@login_required
+@require_POST
+@require_capability("run_batches")
+def job_cancel(request: HttpRequest, project_id: str, job_id: str) -> HttpResponse:
+    project = _project(request, project_id)
+    job = get_object_or_404(BatchJob, project=project, id=job_id)
+    cancelled = BatchJob.objects.filter(
+        id=job.id, status__in=[BatchJob.Status.QUEUED, BatchJob.Status.RUNNING]
+    ).update(status=BatchJob.Status.CANCELLED, finished_at=timezone.now())
+    if cancelled:
+        record_event(
+            request,
+            project.organization,
+            "batch_job.cancelled",
+            object_type="batch_job",
+            object_id=str(job.id),
+        )
+        messages.success(request, "Job cancelled. A running worker stops at its next checkpoint.")
+    else:
+        messages.error(request, "Only queued or running jobs can be cancelled.")
+    return redirect("project_job_detail", project_id=project.id, job_id=job.id)
 
 
 def _project_contacts(project: LeadProject) -> list[Contact]:
