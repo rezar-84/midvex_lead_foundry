@@ -1,0 +1,5 @@
+{% extends "foundry/base.html" %}{% block title %}Set up MFA{% endblock %}
+{% block content %}<section class="auth-card"><p class="eyebrow">Account security</p><h1>Set up MFA</h1>
+<p>Add this secret to your authenticator. The secret is shown only during setup.</p><code class="secret">{{ secret }}</code>
+<details><summary>Authenticator URI</summary><code class="break">{{ provisioning_uri }}</code></details>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Confirm setup</button></form></section>{% endblock %}
