@@ -1,7 +1,7 @@
 ---
-status: awaiting-human-approval
+status: approved
 owner: review-board
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-12
 ---
 
 # Review — MVX-016 project operations and enrichment UI
@@ -37,5 +37,9 @@ last-reviewed: 2026-08-11
 
 | Approval | Named approver | Decision | Date |
 | --- | --- | --- | --- |
-| Tier 1 approver 1 | _(unverified — needs confirmation: accountable data/domain owner)_ | pending | pending |
-| Tier 1 approver 2 | _(unverified — needs confirmation: independent security/privacy approver)_ | pending | pending |
+| Tier 1 approver (solo-operator model, ADR 0007) | Rezar86 (accountable human and data/domain owner) | approved — synthetic increment only; real-source and enrichment authority remain blocked (U2/MVX-009, U5/MVX-011) | 2026-08-12 |
+| Tier 1 approver 2 | waived under ADR 0007 until a second maintainer exists; real-data items still require an independent second approver | waived | 2026-08-12 |
+
+This approval does not touch the privacy-legal Block on external execution: real
+mailbox and crawler execution remain forbidden until MVX-009/MVX-011 are separately
+approved.

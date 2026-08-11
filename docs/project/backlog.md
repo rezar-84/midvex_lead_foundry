@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-12
 ---
 
 # Backlog — Midvex Lead Foundry
@@ -10,6 +10,11 @@ last-reviewed: 2026-08-11
 
 | ID | Task | Tier | Owner role | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
+| MVX-017 | Record approvals, resolve U1, commit and merge MVX-001/MVX-016 | 2 | product-manager | user approval (granted 2026-08-12) | In progress |
+| MVX-018 | Fix analysis-job transactions; add live job progress, cancellation and jobs pagination | 2 | architect | MVX-017 | Ready |
+| MVX-019 | UI consistency: pagination, unified forms, capability-gated navigation, empty states, MFA QR | 2 | ux-designer | MVX-018 | Ready |
+| MVX-020 | White-label configuration and provisioning for single-tenant self-hosting | 1 | architect | MVX-019 | Ready |
+| MVX-021 | Configuration truth: wire or remove dead settings, label reserved models | 2 | architect | MVX-020 | Ready |
 
 ## Next
 
@@ -33,8 +38,6 @@ last-reviewed: 2026-08-11
 
 | ID | Task | Tier | Owner role | Depends on | Status | Waiting on whom | For what decision | Since |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MVX-001 | Establish the governed standalone synthetic pilot foundation | 1 | architect | accountable human and two approvers before merge | Parked | accountable human and two named approvers | approve the Tier 1 foundation for merge; this does not authorise real data | 2026-08-11 |
-| MVX-016 | Operate projects, lead sources, batch entity processing and gated enrichment through the product UI | 1 | product-manager | MVX-001; real execution subject to MVX-009/MVX-011 | Parked | accountable human and two named approvers | approve synthetic increment for merge; separately decide real-source and enrichment authority | 2026-08-11 |
 
 ## Later
 
@@ -46,11 +49,15 @@ last-reviewed: 2026-08-11
 | MVX-013 | Add additional CRM destination adapters | 1 | architect | MVX-012 | Deferred | a named customer CRM is prioritised |
 | MVX-014 | Complete external Google OAuth verification and SaaS isolation gate | 1 | security | commercialisation decision | Deferred | external customer onboarding is authorised |
 | MVX-015 | Add WhatsApp and other chat source adapters | 1 | privacy-legal | platform access and processing authority | Deferred | a specific channel/export path is approved |
+| MVX-022 | Retention purge job honouring org/project retention_days; remove reserved dead schema | 1 | security | MVX-020; MVX-021 | Deferred | white-label configuration and cleanup have landed |
+| MVX-023 | Translation extraction sweep (`{% trans %}`, tr locale files) | 2 | copywriter | MVX-020 locale scaffolding | Deferred | a non-English deployment exists |
 
 ## Done
 
 | ID | Task | Tier | Owner role | Depends on | Status | Completed |
 | --- | --- | --- | --- | --- | --- | --- |
+| MVX-001 | Establish the governed standalone synthetic pilot foundation | 1 | architect | — | Done (approved under ADR 0007; synthetic only) | 2026-08-12 |
+| MVX-016 | Operate projects, lead sources, batch entity processing and gated enrichment through the product UI | 1 | product-manager | MVX-001 | Done (approved under ADR 0007; real execution still subject to MVX-009/MVX-011) | 2026-08-12 |
 
 ## Dropped
 

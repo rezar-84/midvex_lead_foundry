@@ -1,7 +1,7 @@
 ---
-status: awaiting-human-approval
+status: approved
 owner: review-board
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-12
 ---
 
 # Review — MVX-001 governed standalone pilot foundation
@@ -37,5 +37,8 @@ last-reviewed: 2026-08-11
 
 | Approval | Named approver | Decision | Date |
 | --- | --- | --- | --- |
-| Tier 1 approver 1 | _(unverified — needs confirmation: accountable data/domain owner)_ | pending | pending |
-| Tier 1 approver 2 | _(unverified — needs confirmation: independent security/privacy approver)_ | pending | pending |
+| Tier 1 approver (solo-operator model, ADR 0007) | Rezar86 (accountable human and data/domain owner) | approved — synthetic artifact only; real-data authority remains blocked (U2/MVX-009) | 2026-08-12 |
+| Tier 1 approver 2 | waived under ADR 0007 until a second maintainer exists; real-data items still require an independent second approver | waived | 2026-08-12 |
+
+This approval does not touch the privacy-legal Block on real-data use: real mailbox
+processing remains forbidden until MVX-009 is separately approved.

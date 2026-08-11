@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-12
 ---
 
 # Assumptions, unknowns & risks — Midvex Lead Foundry
@@ -18,7 +18,6 @@ last-reviewed: 2026-08-11
 
 | # | Question | Blocks | How we would find out | Owner |
 | --- | --- | --- | --- | --- |
-| U1 | Who is the accountable human and who are the two Tier 1 approvers? | merge/release | Record names in charter. | product-manager |
 | U2 | Which laws, notices, contracts and retention rules apply to current/former staff and correspondents? | real mailbox connection | Qualified review of ownership, locations and purposes. | privacy-legal |
 | U3 | What are the archive size, baseline candidate quality and acceptable review cost? | production budgets | Synthetic run, then authorised labelled pilot. | product-manager |
 | U4 | Which AI and search processors are approved? | external AI/web processing | Processor, retention and agreement review. | privacy-legal |
@@ -46,8 +45,10 @@ last-reviewed: 2026-08-11
 
 | # | Risk | Why accepted | Accepted by | Review on |
 | --- | --- | --- | --- | --- |
+| AR1 | Tier 1 merges are approved by a single human instead of the required two (ADR 0007). | The project has one maintainer; parking all Tier 1 work indefinitely blocks the synthetic pilot entirely. Role reviews, the full check chain and synthetic-only scope compensate. | Rezar86, 2026-08-12 | A second maintainer joins, or MVX-009 opens (real data requires an independent second approver). |
 
 ## Resolved
 
 | # | Was | Resolution | Date | What changed as a result |
 | --- | --- | --- | --- | --- |
+| U1 | Who is the accountable human and who are the two Tier 1 approvers? | Rezar86 recorded as accountable human and sole approver under the solo-operator waiver (ADR 0007, accepted risk AR1). | 2026-08-12 | Charter approver fields filled; MVX-001 and MVX-016 approved for merge (synthetic increment only); AGENTS §9 approval surface written. |

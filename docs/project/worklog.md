@@ -30,6 +30,114 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-017 — governance close-out: approvals recorded, MVX-001/MVX-016 merged
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `feat/MVX-016-project-operations-ui` (six scoped commits `460e7ac..00124e3`) + `docs/MVX-017-governance-closeout`, merged to `main` with `--no-ff`
+
+### What changed
+
+The repository owner (Rezar86) reviewed the parked state and approved the MVX-001 and
+MVX-016 synthetic increments for merge, acting as accountable human. To record that
+lawfully within the kit: the charter's accountable-human/approver fields are filled;
+ADR 0007 establishes the solo-operator approval model (single approver, human-granted
+waiver of the two-approver rule, with revisit triggers); U1 is resolved and the waiver
+is logged as accepted risk AR1; AGENTS §9 overrides (domain rules, forbidden shortcuts,
+approval surface) are written; both ship reviews carry the recorded approval; the
+backlog moves MVX-001/MVX-016 to Done and registers MVX-017–MVX-023. The previously
+uncommitted MVX-016 worktree was committed as five scoped `feat/test/docs(MVX-016)`
+commits plus one `chore(MVX-017)` commit for the agent tooling (`CLAUDE.md`,
+`.claude/commands/`).
+
+### Why
+
+Everything downstream (MVX-018+) must build on committed, approved work; the SDLC
+forbids stacking on a parked Tier 1 branch. The two-approver rule cannot be satisfied
+by a one-person project; the alternative — parking all Tier 1 work indefinitely — kills
+the pilot. A named human granting a recorded, bounded waiver is the kit-compatible
+resolution; an agent could not have made this decision.
+
+### Verified
+
+Full chain re-run on the committed tree (the MVX-016 worklog claims were made against
+the uncommitted worktree):
+
+```
+uv run ruff format --check .   → 37 files already formatted
+uv run ruff check .            → All checks passed!
+uv run mypy foundry lead_foundry → Success: no issues found in 29 source files
+uv run pytest -m 'not integration and not contract and not e2e' → 13 passed
+uv run pytest -m integration   → 2 passed
+uv run pytest -m contract      → 1 passed
+uv build                       → wheel + sdist built
+uv run bandit -q -r foundry lead_foundry → no findings
+uv run pip-audit               → no known vulnerabilities (local package unauditable, expected)
+uv run python scripts/check_a11y.py → 25 templates passed
+uv run pytest -m e2e           → 2 passed
+uv run python manage.py check  → no issues; makemigrations --check → no changes
+```
+
+- [x] `checks.format` — Verified — 37 files already formatted
+- [x] `checks.lint` — Verified — all checks passed
+- [x] `checks.typecheck` — Verified — clean, 29 files
+- [x] `checks.unit` — Verified — 13 passed
+- [x] `checks.integration` — Verified — 2 passed
+- [x] `checks.contract` — Verified — 1 passed
+- [x] `checks.build` — Verified — sdist + wheel
+- [x] `checks.scan` — Verified — Bandit no findings; pip-audit clean
+- [x] `checks.a11y` — Verified — 25 templates, static checks only
+- [x] `checks.e2e` — Verified — 2 passed
+- [x] manual — reviewed diff of every governance edit before commit
+
+### Not done
+
+- Browser/AT accessibility conformance, async workers, real providers — unchanged, still → MVX-008/MVX-003/MVX-010.
+- ADRs 0001–0004 still say `Status: Proposed` in an older front-matter format → cleanup folded into MVX-021.
+- Legacy nullable project-link backfill (ADR 0005 condition) has no backlog ID yet → to be registered when MVX-022 is planned.
+
+### Discovered
+
+- The MVX-001 worklog entry's "Branch/commits: … uncommitted" note was stale — commit
+  `3b28565` existed. Correction: MVX-001's code was committed on 2026-08-11; only
+  MVX-016's increment was uncommitted until today.
+- `.gitignore` already covered `db.sqlite3`/`.env`; nothing sensitive was at risk of
+  being committed.
+
+### Decisions
+
+- ADR 0007 — solo-operator approval model (single named approver with recorded waiver;
+  independent second approver still required for real-data items).
+- Backlog IDs MVX-017–MVX-021 assigned to the continuation sequence (job lifecycle,
+  UI consistency, white-label configuration, configuration truth); MVX-022/MVX-023
+  registered as deferred.
+
+### Assumptions used
+
+- A2 (Dokploy shape) untouched. AR1 (single-approver risk) newly accepted — if wrong
+  (i.e. a second reviewer would have caught something), the exposure is bounded to
+  synthetic-data increments.
+
+### Plan
+
+Tier 2, so the plan lives here: commit the MVX-016 worktree as scoped commits on its
+feature branch; re-run the full chain against the committed tree; make the governance
+edits on `docs/MVX-017-governance-closeout` (charter, ADR 0007, AGENTS §9, U1→AR1,
+ship-review approval tables, plan/backlog statuses, this entry); merge to `main` with
+`--no-ff`. Rejected alternative: recording two approvers by naming the agent as one —
+forbidden, an agent is not an approver. Rejected: leaving the work unmerged and
+building on the parked branch — forbidden by the loop's stopping rule.
+
+### Reviews
+
+- product-manager — Pass — checked traceability of the approval chain (charter → ADR
+  0007 → AR1 → ship reviews → backlog); IDs and statuses consistent across all six
+  documents.
+- architect — Pass — checked that the commit split preserves reviewable boundaries
+  (models/migrations+services, views/urls, templates/static, tests, docs) and that no
+  code changed during the close-out; `git diff 3b28565..HEAD -- foundry/` matches the
+  reviewed MVX-016 diff.
+
 ## MVX-016 — project operations and enrichment UI
 
 **Date:** 2026-08-11 **Tier:** 1

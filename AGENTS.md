@@ -210,11 +210,25 @@ Detail: `docs/process/04-quality-gates.md`.
 _(Everything below is project-specific. The sections above are portable — do not edit
 them here; edit them in the template and re-install with `--upgrade`.)_
 
-**Domain rules:** _(fill in — e.g. regulated content, language/locale policy, brand
-constraints, data residency, on-call expectations)_
+**Domain rules:**
+- Synthetic data only until MVX-009 (real mailbox authority) and, for enrichment egress,
+  MVX-011 are approved by a human. No real credentials, customer data, or personal
+  archives in the repository or fixtures.
+- Locale scope is English and Turkish (LTR); UI copy is English until the translation
+  sweep (MVX-023) lands.
+- Approval policy: solo-operator model per ADR 0007 — Rezar86 is the accountable human
+  and sole Tier 1 approver until a second maintainer exists or MVX-009 opens.
 
-**Forbidden in this project:** _(fill in — the specific shortcuts that would be
-tempting and are not allowed here)_
+**Forbidden in this project:**
+- Enabling `SOURCE_NETWORK_ENABLED` or `ENRICHMENT_NETWORK_ENABLED` outside a work item
+  that a human has approved for external execution.
+- Committing `db.sqlite3`, `.env` contents, or captured real messages as fixtures.
+- Skipping the worklog entry, or marking a check stage passed without running it.
+- Loosening an authorisation check (capability map, org scoping, MFA middleware) in a
+  change not classified Tier 1.
 
-**Human approval required for:** _(fill in — the specific surfaces where a named human
-must sign off before merge or deploy. The charter's Risk defaults table points here.)_
+**Human approval required for:** the charter's Risk defaults list verbatim — real
+mailbox connection, production deployment, data deletion, external AI/search
+processing, CRM export, customer onboarding — plus every Tier 1 merge to `main`.
+Approver: the accountable human (ADR 0007). Real-data items additionally require an
+independent second approver.

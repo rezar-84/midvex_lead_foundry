@@ -28,3 +28,4 @@ the real reason an option lost — are in `../../process/05-change-control.md`,
 | 0004 | Read-only sources and bounded providers | Proposed | 2026-08-11 |
 | 0005 | Project-scoped operations and persisted jobs | Accepted | 2026-08-11 |
 | 0006 | Gated provenance-first enrichment service | Accepted | 2026-08-11 |
+| 0007 | Solo-operator approval model | Accepted | 2026-08-12 |

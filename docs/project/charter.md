@@ -1,7 +1,7 @@
 ---
-status: draft
-owner: accountable-human-required
-last-reviewed: 2026-08-11
+status: active
+owner: Rezar86
+last-reviewed: 2026-08-12
 ---
 
 # Project charter — Midvex Lead Foundry
@@ -14,7 +14,7 @@ last-reviewed: 2026-08-11
 | **What it is** | A private relationship-intelligence application that recovers reviewable sales opportunities from authorised historical communications. |
 | **Work item prefix** | `MVX` |
 | **Repository** | `/home/rubuntu/Projects/midvex_lead_foundry` |
-| **Accountable human** | _(unverified — needs confirmation: named person accountable for Tier 1 approvals)_ |
+| **Accountable human** | Rezar86 (paraxweb@gmail.com) — recorded 2026-08-12; see ADR 0007. |
 
 ## Stack
 
@@ -94,7 +94,7 @@ last-reviewed: 2026-08-11
 | **Always Tier 1 here** | Mailbox access, personal data, authentication, exports, AI processing, retention/deletion, tenant isolation, deployment. |
 | **Never Tier 1 here** | None declared. |
 | **Human approval required for** | Real mailbox connection, production deployment, data deletion, external AI/search processing, CRM export, customer onboarding. |
-| **Approvers** | _(unverified — needs confirmation: two named human approvers, including a data/domain owner)_ |
+| **Approvers** | Rezar86 (sole approver under the solo-operator model, ADR 0007; the two-approver rule resumes when a second maintainer exists or MVX-009 opens). |
 | **Staleness threshold** | 90 days |
 
 ## Standards & targets
