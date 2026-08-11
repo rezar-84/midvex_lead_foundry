@@ -14,7 +14,7 @@ uv run python manage.py createsuperuser
 uv run python manage.py runserver
 ```
 
-The seed command uses reserved `.test` addresses and synthetic content only. The application requires MFA enrollment after sign-in.
+The seed command uses reserved `.test` addresses and synthetic content only. It creates an “Archive recovery demo” project, a synthetic source, completed sync/analysis jobs, contacts, products and relationship metrics. The application requires MFA enrollment after sign-in.
 
 ## Production gates
 

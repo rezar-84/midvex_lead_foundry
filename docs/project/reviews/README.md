@@ -28,3 +28,5 @@ these, not after.
 | --- | --- | --- | --- |
 | MVX-001 | design | 2026-08-11 | Block for real data; synthetic build permitted with conditions |
 | MVX-001 | ship | 2026-08-11 | Block for real data; synthetic artifact parked for two approvals |
+| MVX-016 | design | 2026-08-11 | Block for external execution; synthetic build permitted |
+| MVX-016 | ship | 2026-08-11 | Block for external execution; synthetic increment parked for approval |

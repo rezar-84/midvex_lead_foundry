@@ -22,6 +22,7 @@ last-reviewed: 2026-08-11
 | U2 | Which laws, notices, contracts and retention rules apply to current/former staff and correspondents? | real mailbox connection | Qualified review of ownership, locations and purposes. | privacy-legal |
 | U3 | What are the archive size, baseline candidate quality and acceptable review cost? | production budgets | Synthetic run, then authorised labelled pilot. | product-manager |
 | U4 | Which AI and search processors are approved? | external AI/web processing | Processor, retention and agreement review. | privacy-legal |
+| U5 | Which public domains, crawl purposes and source terms are approved per project? | real enrichment execution | Record an allowlist and qualified source-policy review. | privacy-legal |
 
 ## Unverified claims
 
@@ -39,6 +40,7 @@ last-reviewed: 2026-08-11
 | R4 | Imported/forwarded dates and identities are resolved incorrectly | False opportunity history | possible | Preserve all headers and expose ambiguity rather than overwriting source facts. | architect |
 | R5 | Spam or malicious attachments reach parsers/models | Resource abuse or compromise | possible | Gmail/header/Rspamd quarantine, MIME limits, ClamAV and non-execution. | security |
 | R6 | Future SaaS work assumes pilot isolation is externally verified | Cross-tenant exposure | possible | Separate MVX-014 gate and adversarial isolation review. | security |
+| R7 | Message-derived URLs cause SSRF or uncontrolled crawling | Infrastructure compromise, excessive collection or cost | possible | Deny non-public addresses, require allowlists/budgets, cap redirects/bytes/depth and disable network execution by default. | security |
 
 ## Accepted risks
 

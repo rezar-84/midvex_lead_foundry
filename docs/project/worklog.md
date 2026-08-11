@@ -30,6 +30,84 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-016 — project operations and enrichment UI
+
+**Date:** 2026-08-11 **Tier:** 1
+**Status:** Parked
+**Branch/commits:** `feat/MVX-016-project-operations-ui` / uncommitted; merge requires two named human approvals
+
+### What changed
+
+Added an organisation-scoped product UI for creating projects, configuring synthetic,
+Gmail, IMAP and POP3 lead sources, viewing synchronisation and analysis jobs, exploring
+contacts and products, assigning tags, reviewing interaction metrics and relations, and
+running contact enrichment batches. Added persisted job/entity/provenance models,
+read-only rate-paced source adapters, public-web enrichment controls, extraction-profile
+versioning, migrations, synthetic demo data and tests. Real network execution remains
+disabled by global and project gates.
+
+### Why
+
+Operators need one understandable workflow from source onboarding through reviewed
+knowledge and enrichment. Persisted project-scoped jobs make progress and failure
+visible, while explicit network gates, allowlists, provenance and human review prevent
+an attractive UI from silently authorising processing of personal communications or
+unapproved crawling.
+
+### Verified
+
+- [x] `checks.format` — **Verified** — `ruff format --check .`: 37 files already formatted.
+- [x] `checks.lint` — **Verified** — `ruff check .`: all checks passed; Ruff emitted its Python 3.14 preview warning.
+- [x] `checks.typecheck` — **Verified** — mypy found no issues in 29 source files.
+- [x] `checks.unit` — **Verified** — 15 passed, 3 deselected.
+- [x] `checks.integration` — **Verified** — 2 passed, 16 deselected.
+- [x] `checks.contract` — **Verified** — 1 passed, 17 deselected.
+- [x] `checks.build` — **Verified** — source distribution and wheel built successfully.
+- [x] `checks.scan` — **Verified** — Bandit completed with no findings; pip-audit reported no known vulnerabilities and skipped the private package because it is not on PyPI.
+- [x] `checks.a11y` — **Verified** — static checks passed for 25 templates.
+- [x] `checks.e2e` — **Verified** — 2 passed, 16 deselected; the synthetic project journey covered sync, analysis, entity display, tagging and mocked enrichment review.
+- [x] manual — **Verified** — Django system check reported no issues; migration dry-run reported no changes; local migrations and `seed_demo` completed successfully. No real provider, crawler, production environment, browser or assistive technology was exercised.
+
+### Not done
+
+- Real Gmail authority, full-history checkpoints and reconciliation → MVX-003 and MVX-009.
+- Live IMAP/POP provider matrices and chat sources → MVX-010 and MVX-015.
+- Legal basis, source approval and production egress for live enrichment → MVX-011 and U5.
+- Live message/attachment scanning → MVX-004.
+- Entity deduplication, calibrated scoring and digests → MVX-005 and MVX-006.
+- Production asynchronous workers, browser/assistive-technology tests, backup/restore and deployment verification → MVX-008.
+- Autonomous crawler training is not implemented; extraction behaviour is explicitly versioned through reviewable extraction profiles → new scope requires its own approved work item.
+
+### Discovered
+
+Configuration screens alone are insufficient evidence that external providers are safe
+or authorised. Gmail, IMAP, POP3 and live web enrichment therefore remain visible but
+disabled. Contact quality and sentiment are deterministic `heuristic-v1` outputs, not
+validated predictions. No customer data or real credentials were used.
+
+### Decisions
+
+[ADR 0005](adr/0005-project-scoped-operations-and-jobs.md) records project-scoped
+persisted operations. [ADR 0006](adr/0006-gated-enrichment-service.md) records the
+gated, provenance-preserving enrichment boundary. Existing ADRs continue to govern
+evidence, identity, authentication and read-only provider access.
+
+### Assumptions used
+
+A1–A3 shape the eventual Gmail-first, containerised, bilingual workflow but were not
+validated by this synthetic increment. U2 and U5 remain unresolved; if authority or
+lawful enrichment scope differs, the external-source and crawler designs must change.
+
+### Plan
+
+[MVX-016 plan](plans/MVX-016.md)
+
+### Reviews
+
+[Design review](reviews/MVX-016-design.md) and [ship review](reviews/MVX-016-ship.md).
+Privacy/legal returns Block for real external execution. The synthetic increment is
+Pass with conditions and Parked pending two named human approvals; no waiver was granted.
+
 ## MVX-001 — governed standalone synthetic pilot foundation
 
 **Date:** 2026-08-11 **Tier:** 1

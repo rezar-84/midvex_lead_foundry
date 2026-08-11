@@ -8,6 +8,14 @@ last-reviewed: 2026-08-11
 
 ## Pilot journeys
 
+**MVX-016** — As a product owner, I want to operate separate projects from source configuration through entity enrichment.
+
+- An admin can create a purpose/retention/budget-scoped project and configure Gmail, TLS IMAP, TLS POP3 or synthetic sources without stored credentials being displayed.
+- A user sees persisted sync, analysis and enrichment progress, counters, rate-limit state and safe error codes; duplicate active jobs are refused.
+- Analysis exposes contacts, products, contact-to-product roles, tags, frequency, topics, outcome, sentiment, last contact and a visibly heuristic quality score.
+- Selected contacts can enter a budgeted enrichment batch; only allowlisted public targets through an approved egress boundary are eligible, and returned fields retain URL/hash provenance and require review.
+- With external flags disabled, real source and crawler jobs must stop without making a network request.
+
 **MVX-002** — As an administrator, I want individual MFA-protected accounts and scoped roles so access is attributable and least-privilege.
 
 - Given a confirmed MFA device, valid credentials and an active membership, sign-in grants only that role's actions.

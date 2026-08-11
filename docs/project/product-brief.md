@@ -28,9 +28,9 @@ Company relationship history is dispersed through a long-lived Gmail archive. Th
 
 ## Scope
 
-**Now:** MVX-002–008 deliver one-account read-only Gmail ingestion, spam/attachment gates, linked knowledge, deterministic and AI-assisted candidates, in-app digests, review and CSV.
+**Now:** MVX-016 adds project workspaces, Gmail/IMAP/POP3/synthetic source configuration, observable sync/analysis/enrichment jobs, contact history metrics, products, roles, tags and reviewable enrichment candidates. Only synthetic execution is currently authorised.
 
-**Later:** MVX-010–015 add IMAP, enrichment, CRM adapters, SaaS and chat after explicit gates.
+**Later:** MVX-002–015 harden authentication, prove real provider ingestion/scanning, calibrate analysis, complete enrichment/CRM adapters, SaaS isolation and chat after explicit gates.
 
 **Not doing:** autonomous outreach; Gmail modification; automatic merges; unapproved web scraping; indefinite ungoverned retention; real-data training of general models; CRM-first architecture.
 
@@ -45,4 +45,4 @@ Company relationship history is dispersed through a long-lived Gmail archive. Th
 
 ## Constraints and dependencies
 
-Private Dokploy deployment; balanced/capped cost; Turkish/English; one personal Gmail first. Real mailbox access, processor approvals, two Tier 1 approvers and retention decisions remain human dependencies U1–U4.
+Private Dokploy deployment; balanced/capped cost; Turkish/English; one personal Gmail first. Real mailbox access, crawler source approval, processor approval, two Tier 1 approvers and retention decisions remain human dependencies U1–U5.

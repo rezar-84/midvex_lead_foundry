@@ -11,10 +11,10 @@ last-reviewed: 2026-08-11
 ```text
 browser -> Django web -> PostgreSQL
                     |-> Redis -> Celery workers/scheduler
-                    |             |-> Gmail API
+                    |             |-> Gmail API / TLS IMAP / TLS POP3
                     |             |-> encrypted object storage
                     |             |-> Rspamd / ClamAV
-                    |             `-> approved AI/search providers (disabled by default)
+                    |             `-> controlled egress proxy -> approved public sites/providers
                     `-> CSV destination
 ```
 
@@ -25,7 +25,9 @@ A modular monolith keeps authorisation, business rules and migrations in one dep
 | Component | Responsibility | Owns | Depends on |
 | --- | --- | --- | --- |
 | accounts | MFA, organisation membership, roles | memberships/devices | Django auth |
-| sources | OAuth and connector lifecycle | mailbox/cursors | Gmail; later IMAP |
+| sources | OAuth/password connector lifecycle, TLS and checkpoints | source/mailbox/cursors | Gmail, IMAP, POP3; disabled externally |
+| projects | purpose, retention, language, budgets and allowlists | project/source/job scope | accounts |
+| operations | persisted sync, analysis and enrichment jobs | progress/items/errors | Celery, sources, knowledge |
 | ingestion | raw evidence and parsing | messages/attachments | object store, scanners |
 | knowledge | entity resolution and graph | entities/edges/facts | ingestion |
 | opportunities | rules, AI runs, review, digests | candidates/decisions | knowledge |
@@ -38,6 +40,8 @@ Views call organisation-scoped services; services call repositories/models; conn
 | Service | Failure behavior | Timeout/fallback |
 | --- | --- | --- |
 | Gmail | checkpoint and retry with backoff; revoked auth pauses mailbox | bounded request timeout; no alternate source |
+| IMAP/POP3 | TLS-only standard ports, public-address validation, request pacing and bounded message count | pause with safe error; never delete source mail |
+| Enrichment | allowlist, public-address validation, egress proxy, robots policy, byte/redirect/request budgets | disabled by default; candidate data only |
 | Object storage | abort transaction/reference creation | bounded timeout; no local production fallback |
 | Rspamd | mark assessment unavailable and hold from analysis | fail closed for new content |
 | ClamAV | mark attachment unscanned and exclude | fail closed |
@@ -47,4 +51,4 @@ Identity is established by Django's server session. Organisation membership and 
 
 ## Known limitations and non-goals
 
-Pilot isolation is designed but not externally certified for SaaS. No HA, public API, autonomous action, CRM write, IMAP/chat connector, or third-party analytics is part of MVX-001–008.
+Pilot isolation is designed but not externally certified for SaaS. IMAP/POP3 and enrichment adapters exist behind disabled policy flags but have not been verified against real providers. No HA, public API, autonomous model training/action, CRM write, chat connector, or third-party analytics is authorised.

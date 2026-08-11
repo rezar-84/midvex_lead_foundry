@@ -23,4 +23,5 @@ Full rules: `../../process/00-operating-model.md` (step 2, PLAN).
 
 | Work item | Title | Status |
 | --- | --- | --- |
-| | | |
+| MVX-001 | Governed standalone pilot foundation | Parked |
+| MVX-016 | Project operations and enrichment UI | Parked |

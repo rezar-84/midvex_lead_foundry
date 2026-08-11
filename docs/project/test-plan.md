@@ -8,10 +8,10 @@ last-reviewed: 2026-08-11
 
 All charter stages run locally and in CI when CI is configured. Tests use synthetic RFC 822 fixtures and mocked external boundaries; production mailbox data is forbidden in tests.
 
-- **Unit:** role policy, spam precedence, MIME limits, identity/direction rules, opportunity rules, evidence validation, budgets and CSV schemas.
-- **Integration:** PostgreSQL constraints, encrypted credential round-trip, object storage, scanners, mocked Gmail pagination/retry and deletion traversal.
+- **Unit:** role policy, project/source forms, TLS/public-address enforcement, spam precedence, MIME limits, identity/direction rules, opportunity rules, evidence validation, budgets and CSV schemas.
+- **Integration:** project job constraints, encrypted credential round-trip/non-disclosure, entity metrics/relations, mocked enrichment provenance, object storage, scanners, mocked source pagination/retry and deletion traversal.
 - **Contract:** Gmail response fixtures, AI structured schema, Rspamd/ClamAV response parsing, CSV v1.
-- **E2E:** MFA sign-in; synthetic mailbox import/review; approved CSV export; denial for wrong role/organisation.
+- **E2E:** MFA sign-in; project creation; synthetic source sync; entity analysis; contact/product/tag views; enrichment selection/review; approved CSV export; denial for wrong role/organisation.
 - **Manual:** Turkish/English copy, keyboard/screen-reader/zoom, visual review, labelled opportunity quality and Dokploy rollback.
 
 High-risk cases include permitted/denied/foreign/revoked/tampered access; malformed/oversized/unicode/injection input; forward/reverse migrations; concurrent idempotent jobs; complete purge; provider timeouts and unavailable dependencies.

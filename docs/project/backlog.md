@@ -34,6 +34,7 @@ last-reviewed: 2026-08-11
 | ID | Task | Tier | Owner role | Depends on | Status | Waiting on whom | For what decision | Since |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | MVX-001 | Establish the governed standalone synthetic pilot foundation | 1 | architect | accountable human and two approvers before merge | Parked | accountable human and two named approvers | approve the Tier 1 foundation for merge; this does not authorise real data | 2026-08-11 |
+| MVX-016 | Operate projects, lead sources, batch entity processing and gated enrichment through the product UI | 1 | product-manager | MVX-001; real execution subject to MVX-009/MVX-011 | Parked | accountable human and two named approvers | approve synthetic increment for merge; separately decide real-source and enrichment authority | 2026-08-11 |
 
 ## Later
 
