@@ -108,7 +108,15 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STORAGES = {"staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if TESTING
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        )
+    }
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
@@ -135,6 +143,9 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:63
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
+CELERY_TASK_ALWAYS_EAGER = (
+    os.getenv("CELERY_TASK_ALWAYS_EAGER", "true" if DEBUG else "false").lower() == "true"
+)
 
 TOKEN_ENCRYPTION_KEY = os.getenv("TOKEN_ENCRYPTION_KEY", "")
 RAW_STORAGE_BACKEND = os.getenv("RAW_STORAGE_BACKEND", "filesystem" if DEBUG else "s3")
@@ -148,6 +159,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 GMAIL_REAL_DATA_ENABLED = os.getenv("GMAIL_REAL_DATA_ENABLED", "false").lower() == "true"
+SOURCE_NETWORK_ENABLED = os.getenv("SOURCE_NETWORK_ENABLED", "false").lower() == "true"
+ENRICHMENT_NETWORK_ENABLED = os.getenv("ENRICHMENT_NETWORK_ENABLED", "false").lower() == "true"
+ENRICHMENT_EGRESS_PROXY = os.getenv("ENRICHMENT_EGRESS_PROXY", "")
+ENRICHMENT_MAX_RESPONSE_BYTES = int(os.getenv("ENRICHMENT_MAX_RESPONSE_BYTES", "2000000"))
+ENRICHMENT_REQUEST_TIMEOUT = float(os.getenv("ENRICHMENT_REQUEST_TIMEOUT", "15"))
 
 RSPAMD_URL = os.getenv("RSPAMD_URL", "http://rspamd:11333/checkv2")
 CLAMAV_HOST = os.getenv("CLAMAV_HOST", "clamav")

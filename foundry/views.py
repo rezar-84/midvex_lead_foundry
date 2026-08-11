@@ -23,6 +23,7 @@ from .gmail import READONLY_SCOPE, oauth_flow
 from .models import (
     Company,
     Conversation,
+    LeadSource,
     MailboxConnection,
     MFADevice,
     OpportunityCandidate,
@@ -250,6 +251,7 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
     membership = request.membership  # type: ignore[attr-defined]
     state = request.session.pop("gmail_oauth_state", None)
     policy_confirmed = request.session.pop("gmail_policy_confirmed", False)
+    lead_source_id = request.session.pop("gmail_lead_source_id", None)
     if not state or not policy_confirmed or request.GET.get("state") != state:
         return HttpResponse("Invalid OAuth state", status=400)
     flow = oauth_flow(state=state)
@@ -274,6 +276,18 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
             "policy_confirmed_at": timezone.now(),
         },
     )
+    lead_source = None
+    if lead_source_id:
+        lead_source = get_object_or_404(
+            LeadSource,
+            id=lead_source_id,
+            organization=membership.organization,
+            source_type=LeadSource.SourceType.GMAIL,
+        )
+        lead_source.mailbox = mailbox
+        lead_source.email_address = email_address.lower()
+        lead_source.status = LeadSource.Status.READY
+        lead_source.save(update_fields=["mailbox", "email_address", "status", "updated_at"])
     record_event(
         request,
         membership.organization,
@@ -283,4 +297,10 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
         metadata={"provider": "gmail"},
     )
     messages.success(request, "Gmail source connected with read-only access.")
+    if lead_source:
+        return redirect(
+            "project_source_detail",
+            project_id=lead_source.project_id,
+            source_id=lead_source.id,
+        )
     return redirect("sources")

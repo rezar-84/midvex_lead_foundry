@@ -57,11 +57,11 @@ addopts = "-ra --strict-markers"
 [tool.ruff]
 target-version = "py314"
 line-length = 100
+extend-exclude = ["foundry/migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "DJ", "S", "UP"]
 ignore = ["S101", "DJ008"]
-exclude = ["foundry/migrations"]
 
 [tool.mypy]
 python_version = "3.14"
@@ -73,7 +73,7 @@ exclude = ["migrations/"]
 django_settings_module = "lead_foundry.settings"
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "boto3.*", "google_auth_oauthlib.*", "googleapiclient.*"]
+module = ["celery.*", "boto3.*", "google_auth_oauthlib.*", "googleapiclient.*", "lxml.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
