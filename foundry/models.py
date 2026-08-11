@@ -275,6 +275,8 @@ class Interaction(OrganizationOwnedModel):
 
 
 class ModelRun(OrganizationOwnedModel):
+    """Reserved for MVX-006: provenance record for AI-assisted runs. No writer yet."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider = models.CharField(max_length=100)
     model = models.CharField(max_length=200)
@@ -357,6 +359,8 @@ class ReviewDecision(OrganizationOwnedModel):
 
 
 class Digest(OrganizationOwnedModel):
+    """Reserved for MVX-006: scheduled candidate digests. No writer yet."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=300)
     generated_at = models.DateTimeField(auto_now_add=True)
@@ -365,6 +369,8 @@ class Digest(OrganizationOwnedModel):
 
 
 class ResearchArtifact(OrganizationOwnedModel):
+    """Reserved for MVX-011: metered public-web research artifacts. No writer yet."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     subject_type = models.CharField(max_length=48)
     subject_id = models.UUIDField()
@@ -553,6 +559,9 @@ class BatchJob(OrganizationOwnedModel):
     error_count = models.PositiveIntegerField(default=0)
     request_budget = models.PositiveIntegerField(default=0)
     requests_used = models.PositiveIntegerField(default=0)
+    # rate_limit_remaining is written at sync start but not yet consumed;
+    # configuration is rendered on the job detail page but nothing writes it.
+    # Both are reserved for MVX-010 (adapter matrices); removal is MVX-022.
     rate_limit_remaining = models.PositiveIntegerField(null=True, blank=True)
     configuration = models.JSONField(default=dict, blank=True)
     error_code = models.CharField(max_length=100, blank=True)
@@ -601,6 +610,8 @@ class ProjectEntity(OrganizationOwnedModel):
     project = models.ForeignKey(LeadProject, on_delete=models.CASCADE, related_name="entities")
     entity_type = models.CharField(max_length=48)
     entity_id = models.UUIDField()
+    # review_status is written (manual products get "accepted") but not yet
+    # read anywhere; the review workflow that consumes it is MVX-005.
     review_status = models.CharField(max_length=24, default="candidate")
 
     class Meta:

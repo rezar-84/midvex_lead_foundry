@@ -183,15 +183,7 @@ ENRICHMENT_EGRESS_PROXY = os.getenv("ENRICHMENT_EGRESS_PROXY", "")
 ENRICHMENT_MAX_RESPONSE_BYTES = int(os.getenv("ENRICHMENT_MAX_RESPONSE_BYTES", "2000000"))
 ENRICHMENT_REQUEST_TIMEOUT = float(os.getenv("ENRICHMENT_REQUEST_TIMEOUT", "15"))
 
-RSPAMD_URL = os.getenv("RSPAMD_URL", "http://rspamd:11333/checkv2")
-CLAMAV_HOST = os.getenv("CLAMAV_HOST", "clamav")
-CLAMAV_PORT = int(os.getenv("CLAMAV_PORT", "3310"))
+# Rspamd/ClamAV endpoints and AI-provider settings were removed: nothing read
+# them. MVX-004 (scanning) and MVX-006 (AI-assisted ranking) reintroduce them
+# together with real consumers.
 MAX_MESSAGE_BYTES = int(os.getenv("MAX_MESSAGE_BYTES", str(25 * 1024 * 1024)))
-MAX_ATTACHMENT_BYTES = int(os.getenv("MAX_ATTACHMENT_BYTES", str(15 * 1024 * 1024)))
-
-AI_PROVIDER_ENABLED = os.getenv("AI_PROVIDER_ENABLED", "false").lower() == "true"
-AI_BASE_URL = os.getenv("AI_BASE_URL", "")
-AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_MODEL = os.getenv("AI_MODEL", "")
-AI_MAX_INPUT_CHARS = int(os.getenv("AI_MAX_INPUT_CHARS", "60000"))
-AI_MAX_TOKENS_PER_RUN = int(os.getenv("AI_MAX_TOKENS_PER_RUN", "4000"))
