@@ -35,6 +35,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -100,8 +101,19 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
-LANGUAGE_CODE = "en"
-LANGUAGES = [("en", "English"), ("tr", "Türkçe")]
+
+def _languages_from_env() -> list[tuple[str, str]]:
+    raw = os.getenv("DJANGO_LANGUAGES", "en=English,tr=Türkçe")
+    pairs = []
+    for entry in raw.split(","):
+        code, _, label = entry.strip().partition("=")
+        if code:
+            pairs.append((code, label or code))
+    return pairs
+
+
+LANGUAGE_CODE = os.getenv("DJANGO_LANGUAGE_CODE", "en")
+LANGUAGES = _languages_from_env()
 TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "Europe/Istanbul")
 USE_I18N = True
 USE_TZ = True
@@ -157,6 +169,12 @@ S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+FOUNDRY_BRAND_NAME = os.getenv("FOUNDRY_BRAND_NAME", "Lead Foundry")
+FOUNDRY_USER_AGENT = os.getenv(
+    "FOUNDRY_USER_AGENT",
+    "LeadFoundry/0.1 (+self-hosted research; contact instance operator)",
+)
+
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 GMAIL_REAL_DATA_ENABLED = os.getenv("GMAIL_REAL_DATA_ENABLED", "false").lower() == "true"
 SOURCE_NETWORK_ENABLED = os.getenv("SOURCE_NETWORK_ENABLED", "false").lower() == "true"

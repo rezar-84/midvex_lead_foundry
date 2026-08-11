@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Callable
 from decimal import Decimal
@@ -11,6 +10,7 @@ from django.utils import timezone
 
 from .connectors import iter_source
 from .enrichment import FetchedPage, fetch_public_page
+from .heuristics import CompiledProfile, active_profile
 from .models import (
     BatchJob,
     Contact,
@@ -24,28 +24,6 @@ from .models import (
     SourceMessage,
 )
 from .pipeline import ingest_rfc822
-
-PRODUCT_PATTERN = re.compile(
-    r"\b(?:for|about|regarding|interested in|ilgili)\s+(?:the\s+)?"
-    r"([\wÀ-ž][\wÀ-ž -]{2,60}?(?:product|scanner|software|service|system|cihaz|ürün|yazılım))\b",
-    re.IGNORECASE,
-)
-TOPICS = {
-    "pricing": re.compile(r"\b(price|pricing|quote|quotation|fiyat|teklif)\b", re.I),
-    "demo": re.compile(r"\b(demo|demonstration|tanıtım)\b", re.I),
-    "meeting": re.compile(r"\b(meeting|call|toplantı|görüşme)\b", re.I),
-    "support": re.compile(r"\b(support|problem|issue|destek|sorun)\b", re.I),
-}
-ROLE_TERMS = {
-    "buyer": re.compile(r"\b(buyer|purchas(?:e|ing)|alıcı|satın alma)\b", re.I),
-    "vendor": re.compile(r"\b(vendor|supplier|satıcı|tedarikçi)\b", re.I),
-    "manufacturer": re.compile(r"\b(manufacturer|producer|üretici|imalatçı)\b", re.I),
-}
-POSITIVE = re.compile(r"\b(thank|great|approved|interested|teşekkür|onay|memnun)\b", re.I)
-NEGATIVE = re.compile(r"\b(cancel|complaint|problem|reject|iptal|şikayet|sorun|ret)\b", re.I)
-OUTCOME = re.compile(
-    r"\b(proposal sent|approved|ordered|won|lost|teklif gönder|onay|sipariş)\b", re.I
-)
 
 
 def _mailbox_for(source: LeadSource) -> MailboxConnection:
@@ -98,6 +76,7 @@ def execute_sync_job(job_id: str) -> None:
     source.status = LeadSource.Status.SYNCING
     source.save(update_fields=["status", "updated_at"])
     try:
+        profile = active_profile(job.project)
         mailbox = _mailbox_for(source)
         for envelope in iter_source(source):
             if (
@@ -114,6 +93,7 @@ def execute_sync_job(job_id: str) -> None:
                 envelope.raw,
                 labels=envelope.labels,
                 provider_thread_id=envelope.thread_id,
+                profile=profile,
             )
             job.progress_processed += 1
             job.requests_used += 1
@@ -190,7 +170,12 @@ def _message_contacts(job: BatchJob, message: SourceMessage) -> list[Contact]:
     )
 
 
-def _analyze_message(job: BatchJob, message: SourceMessage, contacts: list[Contact]) -> None:
+def _analyze_message(
+    job: BatchJob,
+    message: SourceMessage,
+    contacts: list[Contact],
+    profile: CompiledProfile,
+) -> None:
     for contact in contacts:
         ProjectEntity.objects.get_or_create(
             organization=job.organization,
@@ -199,7 +184,7 @@ def _analyze_message(job: BatchJob, message: SourceMessage, contacts: list[Conta
             entity_id=contact.id,
         )
     text = f"{message.subject}\n{message.body_text}"
-    product_match = PRODUCT_PATTERN.search(text)
+    product_match = profile.product_pattern.search(text)
     if product_match:
         product_name = " ".join(product_match.group(1).split()).title()
         product, _ = ProductConcept.objects.get_or_create(
@@ -215,7 +200,7 @@ def _analyze_message(job: BatchJob, message: SourceMessage, contacts: list[Conta
         )
         for contact in contacts:
             role = "buyer" if message.direction == SourceMessage.Direction.INBOUND else "prospect"
-            for candidate_role, pattern in ROLE_TERMS.items():
+            for candidate_role, pattern in profile.roles.items():
                 if pattern.search(text):
                     role = candidate_role
                     break
@@ -245,6 +230,7 @@ def execute_analysis_job(job_id: str) -> None:
     job.progress_total = len(messages)
     job.save(update_fields=["progress_total", "updated_at"])
     try:
+        profile = active_profile(job.project)
         contact_messages: dict[UUID, list[SourceMessage]] = {}
         for index, message in enumerate(messages):
             if index and index % CANCEL_CHECK_INTERVAL == 0 and _cancel_requested(job):
@@ -255,13 +241,13 @@ def execute_analysis_job(job_id: str) -> None:
             # Each message commits on its own so progress and partial results
             # survive a mid-run failure or cancellation.
             with transaction.atomic():
-                _analyze_message(job, message, contacts)
+                _analyze_message(job, message, contacts, profile)
             job.progress_processed += 1
             job.save(update_fields=["progress_processed", "updated_at"])
 
         if _cancel_requested(job):
             return
-        _write_contact_metrics(job, contact_messages)
+        _write_contact_metrics(job, contact_messages, profile)
         _finish(job, BatchJob.Status.SUCCEEDED)
     except Exception as exc:
         _finish(job, BatchJob.Status.FAILED, type(exc).__name__.upper()[:100])
@@ -269,17 +255,19 @@ def execute_analysis_job(job_id: str) -> None:
 
 @transaction.atomic
 def _write_contact_metrics(
-    job: BatchJob, contact_messages: dict[UUID, list[SourceMessage]]
+    job: BatchJob,
+    contact_messages: dict[UUID, list[SourceMessage]],
+    profile: CompiledProfile,
 ) -> None:
     for contact_id, related_messages in contact_messages.items():
         contact = Contact.objects.get(id=contact_id, organization=job.organization)
         dates = [item.sent_at for item in related_messages if item.sent_at]
         combined = "\n".join(f"{item.subject}\n{item.body_text}" for item in related_messages)
         topic_counts = Counter(
-            topic for topic, pattern in TOPICS.items() for _ in pattern.finditer(combined)
+            topic for topic, pattern in profile.topics.items() for _ in pattern.finditer(combined)
         )
-        positives = len(POSITIVE.findall(combined))
-        negatives = len(NEGATIVE.findall(combined))
+        positives = len(profile.positive.findall(combined))
+        negatives = len(profile.negative.findall(combined))
         sentiment = (
             "positive"
             if positives > negatives
@@ -287,7 +275,7 @@ def _write_contact_metrics(
             if negatives > positives
             else "neutral"
         )
-        outcome_match = OUTCOME.search(combined)
+        outcome_match = profile.outcome.search(combined)
         frequency = None
         if len(dates) > 1:
             span = max(dates) - min(dates)
@@ -343,6 +331,7 @@ def execute_enrichment_job(
     job.started_at = timezone.now()
     job.progress_total = job.items.count()
     job.save()
+    profile = active_profile(job.project)
     for item in job.items.all():
         if _cancel_requested(job):
             return
@@ -368,6 +357,7 @@ def execute_enrichment_job(
                 fetched_at=timezone.now(),
                 content_sha256=page.content_sha256,
                 candidate_data=page.candidate_data,
+                extraction_profile_version=profile.version,
             )
             item.status = "succeeded"
             item.output = {"fields_found": sorted(page.candidate_data)}

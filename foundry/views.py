@@ -57,7 +57,7 @@ def mfa_setup(request: HttpRequest) -> HttpResponse:
             return redirect("dashboard")
         form.add_error("code", "Invalid authentication code.")
     uri = pyotp.TOTP(secret).provisioning_uri(
-        name=request.user.get_username(), issuer_name="Midvex Lead Foundry"
+        name=request.user.get_username(), issuer_name=settings.FOUNDRY_BRAND_NAME
     )
     qr_data_uri = segno.make(uri, error="m").svg_data_uri(scale=4)
     return render(

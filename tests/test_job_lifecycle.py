@@ -7,6 +7,10 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from foundry import operations
+from foundry.connectors import (
+    SYNTHETIC_INTERNAL_ADDRESS,
+    SYNTHETIC_INTERNAL_DOMAIN,
+)
 from foundry.models import (
     BatchJob,
     BatchJobItem,
@@ -43,8 +47,8 @@ def _make_job(
 def _synced_project(mfa_session, organization, settings, tmp_path) -> LeadProject:
     settings.RAW_STORAGE_BACKEND = "filesystem"
     settings.RAW_STORAGE_ROOT = tmp_path
-    organization.internal_addresses = ["sales@midvex.test"]
-    organization.internal_domains = ["midvex.test"]
+    organization.internal_addresses = [SYNTHETIC_INTERNAL_ADDRESS]
+    organization.internal_domains = [SYNTHETIC_INTERNAL_DOMAIN]
     organization.save()
     project = create_project(organization)
     mfa_session.post(
@@ -52,7 +56,7 @@ def _synced_project(mfa_session, organization, settings, tmp_path) -> LeadProjec
         {
             "source_type": "synthetic",
             "name": "Safe demo",
-            "email_address": "sales@midvex.test",
+            "email_address": SYNTHETIC_INTERNAL_ADDRESS,
             "rate_limit_per_minute": 60,
             "max_messages_per_run": 50,
             "confirm_authority": "on",
@@ -72,11 +76,11 @@ def test_analysis_failure_persists_status_and_partial_progress(
     calls = {"count": 0}
     original = operations._analyze_message
 
-    def failing_analyze(job_arg, message, contacts):
+    def failing_analyze(job_arg, message, contacts, profile):
         calls["count"] += 1
         if calls["count"] >= 2:
             raise RuntimeError("boom")
-        original(job_arg, message, contacts)
+        original(job_arg, message, contacts, profile)
 
     monkeypatch.setattr(operations, "_analyze_message", failing_analyze)
     execute_analysis_job(str(job.id))
@@ -98,7 +102,7 @@ def test_cancel_queued_job_and_worker_skips_it(mfa_session, workspace):
         project=project,
         source_type=LeadSource.SourceType.SYNTHETIC,
         name="Demo",
-        email_address="sales@midvex.test",
+        email_address=SYNTHETIC_INTERNAL_ADDRESS,
     )
     job = _make_job(project, kind=BatchJob.Kind.SYNC, source=source)
 

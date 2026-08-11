@@ -12,7 +12,9 @@ import httpx
 from django.conf import settings
 from lxml import html
 
-USER_AGENT = "MidvexLeadFoundry/0.1 (+private research; contact project owner)"
+
+def _user_agent() -> str:
+    return str(settings.FOUNDRY_USER_AGENT)
 
 
 @dataclass(frozen=True)
@@ -84,14 +86,14 @@ def fetch_public_page(url: str, allowed_domains: list[str]) -> FetchedPage:
         proxy=settings.ENRICHMENT_EGRESS_PROXY,
     ) as client:
         robots_url = f"{urlparse(current).scheme}://{urlparse(current).netloc}/robots.txt"
-        robots_response = client.get(robots_url, headers={"User-Agent": USER_AGENT})
+        robots_response = client.get(robots_url, headers={"User-Agent": _user_agent()})
         parser = RobotFileParser()
         if robots_response.status_code < 400:
             parser.parse(robots_response.text.splitlines())
-            if not parser.can_fetch(USER_AGENT, current):
+            if not parser.can_fetch(_user_agent(), current):
                 raise PermissionError("robots.txt disallows this page")
         for _ in range(4):
-            with client.stream("GET", current, headers={"User-Agent": USER_AGENT}) as response:
+            with client.stream("GET", current, headers={"User-Agent": _user_agent()}) as response:
                 if response.is_redirect:
                     location = response.headers.get("location")
                     if not location:
