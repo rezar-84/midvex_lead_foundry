@@ -59,6 +59,7 @@ last-reviewed: 2026-08-12
 | MVX-020 | White-label configuration and provisioning for single-tenant self-hosting | 1 | architect | MVX-019 | Done (approved under ADR 0007) | 2026-08-12 |
 | MVX-021 | Configuration truth: wire or remove dead settings, label reserved models | 2 | architect | MVX-020 | Done | 2026-08-12 |
 | MVX-024 | Dev run script wrapping sync/migrate/seed/runserver | 3 | devops-sre | — | Done | 2026-08-12 |
+| MVX-025 | Production deployment readiness for Dokploy at mlf.midvex.com | 1 | devops-sre | MVX-020 | Done (approved under ADR 0007; go-live per runbook, drills remain MVX-008) | 2026-08-12 |
 
 ## Dropped
 
