@@ -30,6 +30,86 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-026 — staging smoke run and backup/restore drill
+
+**Date:** 2026-08-12 **Tier:** 2 (container-layer fixes recorded under MVX-025's Tier 1 approval — see its ship-review addendum)
+**Status:** Done
+**Branch/commits:** `feat/MVX-026-staging-smoke-and-backup-drill`, merged to `main` with `--no-ff`
+
+### What changed
+
+The runbook's smoke list and a full backup → destroy → restore drill were executed
+against a local production-mode compose stack (fresh scratch secrets, DEBUG false,
+real async Celery worker). Two container defects found and fixed: runtime no longer
+uses `uv` (venv on `PATH` — `uv run` broke as the non-root user against the
+root-owned build cache), and the image now creates `/data/evidence` owned by the
+app user (the root-owned volume made evidence writes fail, surfacing misleadingly
+as `NETWORK_POLICY_BLOCK`); the web healthcheck now sends `X-Forwarded-Proto` so it
+doesn't chase the HTTPS redirect. Runbook's "Last executed" is now a real record.
+
+### Why
+
+The user asked to close MVX-025's two caveats: an executed smoke list and a
+drilled backup/restore, rather than documented-but-untested procedures.
+
+### Verified
+
+```
+Stack: postgres healthy, redis up, web (healthy), worker up — all restart-safe
+Smoke: /health/ 200 · HTTP→HTTPS 301 · hashed static 200 · provision created
+  org+admin (no secret echoed) · seed_demo sync+analyze succeeded ·
+  ASYNC celery sync job succeeded (first non-eager execution of this pipeline) ·
+  2 .eml evidence files on the volume · all three network gates False
+Drill: pg_dump (3838 lines) + evidence tar → docker compose down -v (verified
+  0 orgs/messages after wipe) → schema drop + psql restore + tar restore →
+  counts identical (2 orgs, 2 messages, 1 contact, 3 jobs), evidence SHA-256
+  hashes identical, manage.py migrate --check consistent, health ok
+Suite: 40 passed after the container fixes; sh -n entrypoint clean
+```
+
+- [x] `checks.*` — Verified — full suite rerun post-fix; other stages unchanged from MVX-025's run
+- [x] manual — Verified — the smoke/drill transcript above is this entry's substance
+
+### Not done
+
+- The same drill on the actual Dokploy host (its volumes, its network) plus
+  rollback-under-load and production budgets → MVX-008.
+- `execute_sync_job` maps every `PermissionError` to `NETWORK_POLICY_BLOCK`,
+  including filesystem permission failures — misleading during diagnosis →
+  follow-up for MVX-008 hardening.
+
+### Discovered
+
+- Named-volume ownership: Docker copies image-path ownership only on first mount of
+  an empty volume — the image must own `/data/evidence` before `USER` drops root.
+- The async worker path had genuinely never run before this drill; it works.
+
+### Decisions
+
+- Runtime containers never invoke `uv`; the venv is the runtime. No ADR — recorded
+  here and in the MVX-025 ship-review addendum.
+
+### Assumptions used
+
+- Local docker-compose parity stands in for the Dokploy host (same images, same
+  compose file); host-specific behaviour remains MVX-008's risk.
+
+### Plan
+
+Tier 2 plan (inline): boot the stack with scratch production env; walk the runbook
+smoke list; fix in place whatever blocks it; then backup both volumes, destroy with
+`down -v`, restore, and verify by counts + content hashes. Rejected: drilling
+against Dokploy directly (no host access from this session; user-driven per MVX-008).
+
+### Reviews
+
+- devops-sre — Pass — entrypoint/healthcheck/volume fixes verified by the passing
+  drill itself; teardown left no stack running and no scratch secrets in the repo.
+- security — Pass — scratch secrets generated fresh and discarded; no secret in
+  logs or docs; gates remained false throughout.
+- qa — Pass — restore verified by equality of counts and SHA-256 hashes, not by
+  absence of errors.
+
 ## MVX-025 — production deployment readiness (mlf.midvex.com)
 
 **Date:** 2026-08-12 **Tier:** 1
