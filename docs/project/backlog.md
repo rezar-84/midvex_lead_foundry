@@ -63,6 +63,8 @@ last-reviewed: 2026-08-12
 | MVX-026 | Staging smoke run and backup/restore drill on a local production-mode stack | 2 | devops-sre | MVX-025 | Done (Dokploy-host drill remains MVX-008) | 2026-08-12 |
 | MVX-027 | Read-only instance settings page for API/Google/gate configuration | 2 | ux-designer | MVX-020 | Done | 2026-08-12 |
 | MVX-028 | Admin-editable encrypted configuration overrides (Google OAuth keys etc.) | 1 | security | MVX-027 | Done (approved under ADR 0007) | 2026-08-12 |
+| MVX-029 | Rewrite Gmail OAuth callback redirect scheme to force HTTPS behind reverse proxy | 2 | architect | MVX-028 | Done | 2026-08-12 |
+
 
 ## Dropped
 

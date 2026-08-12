@@ -30,6 +30,45 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-029 — Gmail OAuth callback HTTPS scheme rewriting
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `fix/MVX-029-gmail-callback-https`, merged to `main`
+
+### What changed
+Rewrote the redirect URI scheme in `gmail_callback` to force `https://` in production environments when behind a reverse proxy that terminates SSL. If Django receives the HTTP scheme from Gunicorn (e.g. because forwarding headers are stripped or unconfigured), the code automatically replaces `http://` with `https://` before token exchange, unless insecure transport is explicitly allowed via `OAUTHLIB_INSECURE_TRANSPORT=1`. Added automated tests verifying both rewritten (production/HTTPS) and unchanged (development/HTTP) flows.
+
+### Why
+The operator reported a 500 Internal Server Error when Google redirected back to the callback. This was caused by `oauthlib` raising an unhandled `InsecureTransportError` when the incoming callback URI returned by `request.build_absolute_uri()` started with `http://` instead of `https://`.
+
+### Verified
+```
+.venv/bin/pytest -> 44 passed (2 new unit tests covering scheme rewriting behaviors)
+```
+- [x] format/lint/typecheck/unit — Verified; run locally and all passed.
+- [x] manual — Tested locally in both mocked OAuth states.
+
+### Not done
+Nothing deferred.
+
+### Discovered
+Reverse proxies on docker stacks like Dokploy/Traefik terminate SSL but internally forward requests over HTTP. If Gunicorn/WSGI is not fully configured to trust headers from all bridge IPs, Django's `build_absolute_uri` defaults to HTTP, triggering `InsecureTransportError` in oauthlib.
+
+### Decisions
+None.
+
+### Assumptions used
+Standard OAuth libraries require HTTPS callbacks.
+
+### Plan
+Inline plan.
+
+### Reviews
+Role reviews inline (security, architect, product-manager: Pass).
+
+
+
 ## MVX-028 — editable instance settings (encrypted overrides)
 
 **Date:** 2026-08-12 **Tier:** 1
