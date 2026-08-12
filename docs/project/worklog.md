@@ -30,6 +30,64 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-027 — instance settings page
+
+**Date:** 2026-08-12 **Tier:** 2
+**Status:** Done
+**Branch/commits:** `feat/MVX-027-instance-settings`, merged to `main` with `--no-ff`
+
+### What changed
+
+New admin-only page at `/settings/` (capability `manage_users`, linked from the
+header nav) showing the instance's full configuration grouped as branding/locale,
+Google OAuth, policy gates, and storage/limits. Every row names its environment
+variable; secrets are masked (client ID truncated) or shown only as set/unset —
+no secret value reaches the page.
+
+### Why
+
+The user asked for a settings menu covering API and Google configuration. Values
+stay environment-managed (Dokploy) — a read-only surface tells an operator what is
+configured without turning the database into a credential store; web-editable
+secrets would be a separate Tier 1 decision.
+
+### Verified
+
+```
+ruff/mypy clean; pytest → 41 passed (new: masking + analyst 403); a11y → 28 templates
+```
+
+- [x] format/lint/typecheck/unit/a11y — Verified; other stages unchanged this session
+- [ ] manual — Not run — no rendered session (MVX-008)
+
+### Not done
+
+- Editable configuration (would store secrets in DB) → future Tier 1 item if wanted.
+
+### Discovered
+
+Nothing.
+
+### Decisions
+
+Read-only over editable — recorded above; no ADR (reversible).
+
+### Assumptions used
+
+Environment-managed config (ADR 0009 deployment model) remains the pattern.
+
+### Plan
+
+Tier 2 inline: one view building grouped (label, value, env-var) rows with masking
+helpers, one template, admin-gated nav link, tests for masking and denial.
+
+### Reviews
+
+- security — Pass — no secret value rendered (tested); page requires `manage_users`.
+- ux-designer — Pass — grouped tables reuse the panel/table idiom; env var named per row.
+- qa — Pass — masking, denial and content assertions in `test_ui_consistency.py`.
+
+
 ## MVX-026 — staging smoke run and backup/restore drill
 
 **Date:** 2026-08-12 **Tier:** 2 (container-layer fixes recorded under MVX-025's Tier 1 approval — see its ship-review addendum)

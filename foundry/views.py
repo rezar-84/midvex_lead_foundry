@@ -325,3 +325,86 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
             source_id=lead_source.id,
         )
     return redirect("sources")
+
+
+def _mask(value: str) -> str:
+    if not value:
+        return ""
+    return f"{value[:4]}…{value[-2:]}" if len(value) > 8 else "set"
+
+
+@login_required
+@require_capability("manage_users")
+def instance_settings(request: HttpRequest) -> HttpResponse:
+    groups = [
+        (
+            "Branding & locale",
+            [
+                ("Brand name", settings.FOUNDRY_BRAND_NAME, "FOUNDRY_BRAND_NAME"),
+                ("Enrichment user-agent", settings.FOUNDRY_USER_AGENT, "FOUNDRY_USER_AGENT"),
+                ("Language code", settings.LANGUAGE_CODE, "DJANGO_LANGUAGE_CODE"),
+                (
+                    "Languages",
+                    ", ".join(code for code, _ in settings.LANGUAGES),
+                    "DJANGO_LANGUAGES",
+                ),
+                ("Time zone", settings.TIME_ZONE, "DJANGO_TIME_ZONE"),
+            ],
+        ),
+        (
+            "Google OAuth (Gmail read-only)",
+            [
+                ("Client ID", _mask(settings.GOOGLE_CLIENT_ID), "GOOGLE_CLIENT_ID"),
+                (
+                    "Client secret",
+                    "set" if settings.GOOGLE_CLIENT_SECRET else "",
+                    "GOOGLE_CLIENT_SECRET",
+                ),
+                ("Redirect URI", settings.GOOGLE_REDIRECT_URI, "GOOGLE_REDIRECT_URI"),
+            ],
+        ),
+        (
+            "Policy gates (human approval required to enable)",
+            [
+                (
+                    "Real Gmail data",
+                    "enabled" if settings.GMAIL_REAL_DATA_ENABLED else "disabled",
+                    "GMAIL_REAL_DATA_ENABLED",
+                ),
+                (
+                    "External source sync",
+                    "enabled" if settings.SOURCE_NETWORK_ENABLED else "disabled",
+                    "SOURCE_NETWORK_ENABLED",
+                ),
+                (
+                    "Enrichment network",
+                    "enabled" if settings.ENRICHMENT_NETWORK_ENABLED else "disabled",
+                    "ENRICHMENT_NETWORK_ENABLED",
+                ),
+                (
+                    "Enrichment egress proxy",
+                    "set" if settings.ENRICHMENT_EGRESS_PROXY else "",
+                    "ENRICHMENT_EGRESS_PROXY",
+                ),
+            ],
+        ),
+        (
+            "Storage & limits",
+            [
+                ("Evidence backend", settings.RAW_STORAGE_BACKEND, "RAW_STORAGE_BACKEND"),
+                ("S3 bucket", settings.S3_BUCKET or "", "S3_BUCKET"),
+                ("S3 endpoint", settings.S3_ENDPOINT_URL or "", "S3_ENDPOINT_URL"),
+                (
+                    "Max message size",
+                    f"{settings.MAX_MESSAGE_BYTES // (1024 * 1024)} MB",
+                    "MAX_MESSAGE_BYTES",
+                ),
+                (
+                    "Token encryption key",
+                    "set" if settings.TOKEN_ENCRYPTION_KEY else "derived (dev only)",
+                    "TOKEN_ENCRYPTION_KEY",
+                ),
+            ],
+        ),
+    ]
+    return render(request, "foundry/instance_settings.html", {"groups": groups})

@@ -1,0 +1,21 @@
+{% extends "foundry/base.html" %}
+{% block title %}Instance settings · {{ brand_name }}{% endblock %}
+{% block content %}
+<p class="eyebrow">Administration</p>
+<h1>Instance settings</h1>
+<p>Configuration is environment-managed (set these in Dokploy, then redeploy).
+Secrets are shown masked or as set/unset only.</p>
+{% for heading, rows in groups %}
+<section class="panel" style="margin-bottom:1rem">
+  <h2>{{ heading }}</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Setting</th><th>Value</th><th>Environment variable</th></tr></thead>
+    <tbody>
+      {% for label, value, env in rows %}
+      <tr><td>{{ label }}</td><td>{% if value %}{{ value }}{% else %}<span class="muted">not set</span>{% endif %}</td><td><code>{{ env }}</code></td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endfor %}
+{% endblock %}

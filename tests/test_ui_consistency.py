@@ -144,3 +144,21 @@ def test_empty_states_render(mfa_session, workspace):
     assert "No contacts yet" in contacts.content.decode()
     assert "No conversations imported" in conversations.content.decode()
     assert "No jobs have been started" in jobs.content.decode()
+
+
+@pytest.mark.django_db
+def test_instance_settings_admin_only_and_masks_secrets(mfa_session, client, workspace, settings):
+    settings.GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
+    settings.GOOGLE_CLIENT_SECRET = "super-secret-value"  # noqa: S105
+    organization, _, _, _ = workspace
+    response = mfa_session.get(reverse("instance_settings"))
+    content = response.content.decode()
+    assert response.status_code == 200
+    assert "super-secret-value" not in content
+    assert "1234567890-abcdef.apps.googleusercontent.com" not in content
+    assert "1234…om" in content
+    assert "GOOGLE_REDIRECT_URI" in content and "SOURCE_NETWORK_ENABLED" in content
+
+    _login_role(client, organization, Membership.Role.ANALYST, "settings-analyst")
+    denied = client.get(reverse("instance_settings"))
+    assert denied.status_code == 403
