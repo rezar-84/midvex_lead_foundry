@@ -43,6 +43,31 @@ rules, and a project-scoped `ExtractionProfile` row (entity type `message`) can
 override any rule pattern. Rules are validated regex strings — invalid or oversized
 patterns are rejected.
 
+## Deploying on Dokploy (mlf.midvex.com)
+
+1. In Dokploy create a **Docker Compose** application pointing at this repository
+   (`compose.yaml` at the root). Every push to `main` can auto-deploy, or deploy a
+   pinned commit.
+2. Copy `.env.production.example` into the application's environment configuration
+   and replace every `replace-*` value. Generate the two secrets:
+   `python -c "import secrets; print(secrets.token_urlsafe(64))"` for
+   `DJANGO_SECRET_KEY`, and
+   `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+   for `TOKEN_ENCRYPTION_KEY` (losing this key orphans stored credentials).
+3. Add the domain **mlf.midvex.com** to the `web` service (container port 8000)
+   with HTTPS/Let's Encrypt enabled. TLS terminates at Dokploy's proxy; the app
+   trusts `X-Forwarded-Proto` and redirects HTTP itself.
+4. First deploy: the web container applies migrations automatically
+   (`scripts/docker-entrypoint.sh`), then provision your organisation:
+   `uv run python manage.py provision --org-name "Midvex" --username <you>`
+   from the web container's terminal (set `FOUNDRY_ADMIN_PASSWORD` for
+   non-interactive use). Sign in and enrol MFA.
+5. Evidence storage defaults to the `evidence_data` volume
+   (`RAW_STORAGE_BACKEND=filesystem`); switch to S3-compatible storage by setting
+   `RAW_STORAGE_BACKEND=s3` and the `S3_*` values. Back up the `postgres_data` and
+   `evidence_data` volumes together — backup/restore drills are MVX-008.
+6. Keep the three network policy gates `false` (see Production gates below).
+
 ## Production gates
 
 Do not set `GMAIL_REAL_DATA_ENABLED=true` until authority, jurisdiction, retention, deletion, processor terms, two Tier 1 approvers, and rollback ownership are recorded. See [security and privacy](docs/project/security-privacy.md) and the [release runbook](docs/project/release-runbook.md).

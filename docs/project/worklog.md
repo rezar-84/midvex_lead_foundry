@@ -30,6 +30,72 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-025 — production deployment readiness (mlf.midvex.com)
+
+**Date:** 2026-08-12 **Tier:** 1
+**Status:** Done
+**Branch/commits:** `feat/MVX-025-production-deployment-readiness`, merged to `main` with `--no-ff`; approval per ADR 0007
+
+### What changed
+
+The compose stack is deployable on Dokploy at `mlf.midvex.com`:
+`scripts/docker-entrypoint.sh` runs migrations then gunicorn (web container only),
+the web service gains a `/health/` healthcheck using in-image Python, an
+`evidence_data` volume backs the filesystem evidence store on web+worker, the
+worker now waits for healthy postgres, all services restart unless stopped, and
+`.env.production.example` documents every variable with domain-specific values and
+secret-generation commands. README gains a six-step Dokploy walkthrough; ADR 0009
+records the single-node topology (entrypoint migrations assume one web replica;
+S3 is a config-only upgrade).
+
+### Why
+
+The user requested production deployment on Dokploy with this domain. Gaps were
+operational, not code: nothing ran migrations, no healthcheck, and the s3-default
+evidence backend required infrastructure that doesn't exist yet.
+
+### Verified
+
+```
+ruff format/check, mypy → clean (32 files); pytest → 40 passed
+uv build → ok; bandit → no findings; pip-audit → no known vulnerabilities
+check_a11y → 27 templates; sh -n entrypoint → clean
+docker compose config -q (template as .env, POSTGRES_PASSWORD set) → valid
+compose without POSTGRES_PASSWORD → refuses (required-var guard works)
+```
+
+- [x] all ten `checks.*` stages — Verified (no Python delta; full chain rerun)
+- [ ] manual — **Not run** — no live Dokploy deploy executed; the first deploy
+  must follow `release-runbook.md`'s smoke list.
+
+### Not done
+
+- Live deploy, backup/restore/rollback drills, production budgets → MVX-008.
+- S3 object storage provisioning → config-only switch when available.
+
+### Discovered
+
+- `store_raw` already honoured `RAW_STORAGE_BACKEND=filesystem` outside DEBUG —
+  the "S3 required in production" assumption was settings-default only.
+
+### Decisions
+
+- ADR 0009 — single-node Dokploy topology (entrypoint migrations, volume-backed
+  evidence, TLS at proxy).
+
+### Assumptions used
+
+- Single web replica; Dokploy sets `X-Forwarded-Proto`. AR1 for the merge.
+
+### Plan
+
+`docs/project/plans/MVX-025.md` (approved).
+
+### Reviews
+
+`docs/project/reviews/MVX-025-design.md` and `MVX-025-ship.md` — Pass with
+conditions; MVX-008 blocks calling the deployment production-proven.
+
 ## MVX-024 — dev run script
 
 **Date:** 2026-08-12 **Tier:** 3

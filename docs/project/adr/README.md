@@ -30,3 +30,4 @@ the real reason an option lost — are in `../../process/05-change-control.md`,
 | 0006 | Gated provenance-first enrichment service | Accepted | 2026-08-11 |
 | 0007 | Solo-operator approval model | Accepted | 2026-08-12 |
 | 0008 | Configuration-driven white-labelling and extraction profiles | Accepted | 2026-08-12 |
+| 0009 | Single-node Dokploy production topology | Accepted | 2026-08-12 |
