@@ -3,6 +3,7 @@ services:
     build: .
     command: ["./scripts/docker-entrypoint.sh"]
     env_file: .env
+    networks: [default, dokploy-network]
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,3 +51,9 @@ volumes:
   postgres_data:
   redis_data:
   evidence_data:
+# Dokploy's Traefik proxy reaches web over this pre-existing network.
+# For plain local compose, create it once: docker network create dokploy-network
+networks:
+  default: {}
+  dokploy-network:
+    external: true
