@@ -31,6 +31,7 @@ from .models import (
     ReviewDecision,
 )
 from .pagination import paginate
+from .runtime_settings import EDITABLE_KEYS, runtime_setting, set_runtime_setting
 
 
 def health(request: HttpRequest) -> HttpResponse:
@@ -57,7 +58,7 @@ def mfa_setup(request: HttpRequest) -> HttpResponse:
             return redirect("dashboard")
         form.add_error("code", "Invalid authentication code.")
     uri = pyotp.TOTP(secret).provisioning_uri(
-        name=request.user.get_username(), issuer_name=settings.FOUNDRY_BRAND_NAME
+        name=request.user.get_username(), issuer_name=runtime_setting("FOUNDRY_BRAND_NAME")
     )
     qr_data_uri = segno.make(uri, error="m").svg_data_uri(scale=4)
     return render(
@@ -340,8 +341,12 @@ def instance_settings(request: HttpRequest) -> HttpResponse:
         (
             "Branding & locale",
             [
-                ("Brand name", settings.FOUNDRY_BRAND_NAME, "FOUNDRY_BRAND_NAME"),
-                ("Enrichment user-agent", settings.FOUNDRY_USER_AGENT, "FOUNDRY_USER_AGENT"),
+                ("Brand name", runtime_setting("FOUNDRY_BRAND_NAME"), "FOUNDRY_BRAND_NAME"),
+                (
+                    "Enrichment user-agent",
+                    runtime_setting("FOUNDRY_USER_AGENT"),
+                    "FOUNDRY_USER_AGENT",
+                ),
                 ("Language code", settings.LANGUAGE_CODE, "DJANGO_LANGUAGE_CODE"),
                 (
                     "Languages",
@@ -354,13 +359,13 @@ def instance_settings(request: HttpRequest) -> HttpResponse:
         (
             "Google OAuth (Gmail read-only)",
             [
-                ("Client ID", _mask(settings.GOOGLE_CLIENT_ID), "GOOGLE_CLIENT_ID"),
+                ("Client ID", _mask(runtime_setting("GOOGLE_CLIENT_ID")), "GOOGLE_CLIENT_ID"),
                 (
                     "Client secret",
-                    "set" if settings.GOOGLE_CLIENT_SECRET else "",
+                    "set" if runtime_setting("GOOGLE_CLIENT_SECRET") else "",
                     "GOOGLE_CLIENT_SECRET",
                 ),
-                ("Redirect URI", settings.GOOGLE_REDIRECT_URI, "GOOGLE_REDIRECT_URI"),
+                ("Redirect URI", runtime_setting("GOOGLE_REDIRECT_URI"), "GOOGLE_REDIRECT_URI"),
             ],
         ),
         (
@@ -383,7 +388,7 @@ def instance_settings(request: HttpRequest) -> HttpResponse:
                 ),
                 (
                     "Enrichment egress proxy",
-                    "set" if settings.ENRICHMENT_EGRESS_PROXY else "",
+                    "set" if runtime_setting("ENRICHMENT_EGRESS_PROXY") else "",
                     "ENRICHMENT_EGRESS_PROXY",
                 ),
             ],
@@ -407,4 +412,33 @@ def instance_settings(request: HttpRequest) -> HttpResponse:
             ],
         ),
     ]
-    return render(request, "foundry/instance_settings.html", {"groups": groups})
+    return render(
+        request,
+        "foundry/instance_settings.html",
+        {"groups": groups, "editable_keys": set(EDITABLE_KEYS)},
+    )
+
+
+@login_required
+@require_POST
+@require_capability("manage_users")
+def instance_setting_update(request: HttpRequest) -> HttpResponse:
+    key = request.POST.get("key", "")
+    if key not in EDITABLE_KEYS:
+        messages.error(request, "That setting is not editable from the interface.")
+        return redirect("instance_settings")
+    value = request.POST.get("value", "").strip()
+    set_runtime_setting(key, value)
+    membership = request.membership  # type: ignore[attr-defined]
+    record_event(
+        request,
+        membership.organization,
+        "instance_setting.updated",
+        object_type="instance_setting",
+        object_id=key,
+        metadata={"cleared": not value},
+    )
+    messages.success(
+        request, f"{EDITABLE_KEYS[key].label} {'cleared' if not value else 'updated'}."
+    )
+    return redirect("instance_settings")

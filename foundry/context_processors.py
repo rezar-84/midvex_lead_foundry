@@ -1,7 +1,7 @@
-from django.conf import settings
 from django.http import HttpRequest
 
 from .access import CAPABILITIES, membership_for
+from .runtime_settings import runtime_setting
 
 
 def active_membership(request: HttpRequest) -> dict[str, object]:
@@ -10,5 +10,5 @@ def active_membership(request: HttpRequest) -> dict[str, object]:
     return {
         "active_membership": membership,
         "capabilities": capabilities,
-        "brand_name": settings.FOUNDRY_BRAND_NAME,
+        "brand_name": runtime_setting("FOUNDRY_BRAND_NAME"),
     }

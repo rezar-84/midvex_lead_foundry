@@ -738,3 +738,14 @@ class EnrichmentResult(OrganizationOwnedModel):
     candidate_data = models.JSONField(default=dict)
     status = models.CharField(max_length=24, default="candidate")
     extraction_profile_version = models.PositiveIntegerField(default=1)
+
+
+class InstanceSetting(TimestampedModel):
+    """Admin-editable configuration override; values encrypted at rest.
+
+    Instance-wide (no organization FK) — one deployment, one configuration
+    (ADR 0009/0010). Only keys in runtime_settings.EDITABLE_KEYS are written.
+    """
+
+    key = models.CharField(max_length=64, unique=True)
+    encrypted_value = models.TextField(blank=True)

@@ -13,6 +13,7 @@ from googleapiclient.discovery import build
 
 from .crypto import decrypt
 from .models import MailboxConnection
+from .runtime_settings import runtime_setting
 
 READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"  # noqa: S105  # nosec B105
@@ -31,7 +32,11 @@ def require_real_data_enabled() -> None:
     if not settings.GMAIL_REAL_DATA_ENABLED:
         raise PermissionError("Real Gmail access is disabled by policy")
     if not all(
-        [settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET, settings.GOOGLE_REDIRECT_URI]
+        [
+            runtime_setting("GOOGLE_CLIENT_ID"),
+            runtime_setting("GOOGLE_CLIENT_SECRET"),
+            runtime_setting("GOOGLE_REDIRECT_URI"),
+        ]
     ):
         raise ImproperlyConfigured("Google OAuth settings are incomplete")
 
@@ -40,15 +45,18 @@ def oauth_flow(*, state: str | None = None) -> Flow:
     require_real_data_enabled()
     config = {
         "web": {
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "client_id": runtime_setting("GOOGLE_CLIENT_ID"),
+            "client_secret": runtime_setting("GOOGLE_CLIENT_SECRET"),
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": OAUTH_TOKEN_URI,
-            "redirect_uris": [settings.GOOGLE_REDIRECT_URI],
+            "redirect_uris": [runtime_setting("GOOGLE_REDIRECT_URI")],
         }
     }
     return Flow.from_client_config(
-        config, scopes=[READONLY_SCOPE], state=state, redirect_uri=settings.GOOGLE_REDIRECT_URI
+        config,
+        scopes=[READONLY_SCOPE],
+        state=state,
+        redirect_uri=runtime_setting("GOOGLE_REDIRECT_URI"),
     )
 
 
@@ -70,8 +78,8 @@ def _service(mailbox: MailboxConnection) -> Any:
         token=None,
         refresh_token=decrypt(mailbox.encrypted_refresh_token),
         token_uri=OAUTH_TOKEN_URI,
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        client_id=runtime_setting("GOOGLE_CLIENT_ID"),
+        client_secret=runtime_setting("GOOGLE_CLIENT_SECRET"),
         scopes=[READONLY_SCOPE],
     )
     return build("gmail", "v1", credentials=credentials, cache_discovery=False)
