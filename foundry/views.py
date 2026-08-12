@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import secrets
 from typing import cast
 
@@ -277,7 +278,12 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
     if not state or not policy_confirmed or request.GET.get("state") != state:
         return HttpResponse("Invalid OAuth state", status=400)
     flow = oauth_flow(state=state)
-    flow.fetch_token(authorization_response=request.build_absolute_uri())
+    auth_response = request.build_absolute_uri()
+    # Force HTTPS scheme in environments where SSL is required,
+    # to avoid oauthlib InsecureTransportError behind reverse proxies.
+    if auth_response.startswith("http://") and os.environ.get("OAUTHLIB_INSECURE_TRANSPORT") != "1":
+        auth_response = "https://" + auth_response[len("http://") :]
+    flow.fetch_token(authorization_response=auth_response)
     credentials = flow.credentials
     if READONLY_SCOPE not in set(credentials.scopes or []):
         return HttpResponse("Required read-only Gmail scope was not granted", status=400)
