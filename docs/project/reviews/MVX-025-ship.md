@@ -36,3 +36,16 @@ backup/restore/rollback drills.
 | Approval | Named approver | Decision | Date |
 | --- | --- | --- | --- |
 | Tier 1 approver (solo-operator model, ADR 0007) | Rezar86 | approved — deployment preparation; production go-live per runbook; network gates stay false | 2026-08-12 |
+
+## Addendum — MVX-026 staging drill (same day)
+
+Executing the runbook smoke list against a local production-mode stack exposed two
+defects in the reviewed increment, both fixed under this item's approval:
+(1) `uv run` at runtime failed as the non-root user (build cache unwritable) —
+runtime now uses the venv directly via `PATH`, no `uv` after build; (2) the
+`evidence_data` volume was root-owned so the app could not write evidence (the
+`PermissionError` surfaced misleadingly as `NETWORK_POLICY_BLOCK`), and the
+healthcheck followed the HTTPS redirect and failed — the image now creates
+`/data/evidence` owned by the app user, and the healthcheck sends
+`X-Forwarded-Proto`. Re-review (architect, security, devops-sre): Pass — fixes are
+contained to the container layer; no Python change.

@@ -12,4 +12,12 @@ Procedure: back up PostgreSQL/object storage; deploy additive migrations; deploy
 
 Smoke checks: health/readiness; MFA sign-in and denial; project creation; synthetic source sync; job progress; entity analysis; contact/product/tag history; policy-blocked external source/enrichment; evidence-linked candidate review; CSV export; audit record; no credentials/content in logs.
 
-Rollback: pause workers/sources, deploy prior image, reverse only verified migrations, restore data only when integrity requires it, rotate credentials if exposure is suspected, and record the action. Last executed: never — MVX-008 blocks production until staging execution is recorded.
+Rollback: pause workers/sources, deploy prior image, reverse only verified migrations, restore data only when integrity requires it, rotate credentials if exposure is suspected, and record the action.
+
+Last executed: 2026-08-12 (MVX-026) — smoke list and a full backup → destroy →
+restore drill of `postgres_data` + `evidence_data` ran against a local
+production-mode compose stack (DEBUG false, real Celery worker): health, HTTPS
+redirect, hashed static serving, provision, synthetic sync/analysis, an
+asynchronous worker job, evidence writes, policy gates false; post-restore counts
+and evidence SHA-256 hashes identical, `migrate --check` consistent. The same
+drill on the Dokploy host itself remains open under MVX-008.
