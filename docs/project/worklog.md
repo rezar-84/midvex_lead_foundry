@@ -30,6 +30,52 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-028 — editable instance settings (encrypted overrides)
+
+**Date:** 2026-08-12 **Tier:** 1
+**Status:** Done
+**Branch/commits:** `feat/MVX-028-editable-instance-settings`, merged with `--no-ff`; approval per ADR 0007
+
+### What changed
+Admins can add/edit whitelisted configuration keys (Google OAuth client ID/secret,
+redirect URI, brand, user-agent, egress proxy) from `/settings/`. Overrides are
+Fernet-encrypted `InstanceSetting` rows (migration 0005) resolved by
+`runtime_settings.runtime_setting()` with env fallback; secrets are write-only;
+every change is audit-logged; clearing a field returns to the env value. Policy
+gates and bootstrap secrets are not editable (whitelist enforced server-side).
+Consumers (`gmail.py`, `enrichment.py`, brand context, TOTP issuer) read through
+the resolver. ADR 0010.
+
+### Why
+User request: manage API keys in the product instead of Dokploy env edits.
+
+### Verified
+```
+ruff/mypy clean (33 files); pytest → 42 passed (new: ciphertext at rest, override
+precedence, never-rendered secret, gate-key refusal, clear-to-env, analyst 403)
+```
+- [x] format/lint/typecheck/unit — Verified; full chain last run MVX-027 unchanged elsewhere
+- [ ] manual — Not run — real Google OAuth round-trip needs credentials (MVX-009/MVX-003)
+
+### Not done
+Per-organization config → MVX-014. Real OAuth round-trip untested → MVX-003.
+
+### Discovered
+Nothing.
+
+### Decisions
+ADR 0010 (whitelist, write-only secrets, env fallback, gates excluded).
+
+### Assumptions used
+`TOKEN_ENCRYPTION_KEY` stability (documented in .env template).
+
+### Plan
+`docs/project/plans/MVX-028.md`.
+
+### Reviews
+`reviews/MVX-028-design.md`, `reviews/MVX-028-ship.md` — Pass.
+
+
 ## MVX-027 — instance settings page
 
 **Date:** 2026-08-12 **Tier:** 2

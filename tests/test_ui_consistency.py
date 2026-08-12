@@ -162,3 +162,40 @@ def test_instance_settings_admin_only_and_masks_secrets(mfa_session, client, wor
     _login_role(client, organization, Membership.Role.ANALYST, "settings-analyst")
     denied = client.get(reverse("instance_settings"))
     assert denied.status_code == 403
+
+
+@pytest.mark.django_db
+def test_instance_setting_edit_encrypts_and_overrides(mfa_session, client, workspace):
+    from foundry.models import InstanceSetting
+    from foundry.runtime_settings import runtime_setting
+
+    organization, _, _, _ = workspace
+    response = mfa_session.post(
+        reverse("instance_setting_update"),
+        {"key": "GOOGLE_CLIENT_SECRET", "value": "ui-entered-secret"},
+    )
+    assert response.status_code == 302
+    row = InstanceSetting.objects.get(key="GOOGLE_CLIENT_SECRET")
+    assert "ui-entered-secret" not in row.encrypted_value
+    assert runtime_setting("GOOGLE_CLIENT_SECRET") == "ui-entered-secret"
+
+    page = mfa_session.get(reverse("instance_settings")).content.decode()
+    assert "ui-entered-secret" not in page
+
+    gate = mfa_session.post(
+        reverse("instance_setting_update"),
+        {"key": "SOURCE_NETWORK_ENABLED", "value": "true"},
+    )
+    assert gate.status_code == 302
+    assert not InstanceSetting.objects.filter(key="SOURCE_NETWORK_ENABLED").exists()
+
+    mfa_session.post(
+        reverse("instance_setting_update"), {"key": "GOOGLE_CLIENT_SECRET", "value": ""}
+    )
+    assert not InstanceSetting.objects.filter(key="GOOGLE_CLIENT_SECRET").exists()
+
+    _login_role(client, organization, Membership.Role.ANALYST, "settings-editor")
+    denied = client.post(
+        reverse("instance_setting_update"), {"key": "GOOGLE_CLIENT_ID", "value": "x"}
+    )
+    assert denied.status_code == 403

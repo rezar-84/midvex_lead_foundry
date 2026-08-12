@@ -12,9 +12,11 @@ import httpx
 from django.conf import settings
 from lxml import html
 
+from .runtime_settings import runtime_setting
+
 
 def _user_agent() -> str:
-    return str(settings.FOUNDRY_USER_AGENT)
+    return runtime_setting("FOUNDRY_USER_AGENT")
 
 
 @dataclass(frozen=True)
@@ -77,13 +79,13 @@ def _extract_candidates(content: bytes, url: str) -> dict[str, object]:
 def fetch_public_page(url: str, allowed_domains: list[str]) -> FetchedPage:
     if not settings.ENRICHMENT_NETWORK_ENABLED:
         raise PermissionError("Enrichment network execution is disabled by policy")
-    if not settings.ENRICHMENT_EGRESS_PROXY:
+    if not runtime_setting("ENRICHMENT_EGRESS_PROXY"):
         raise PermissionError("A private-network-blocking egress proxy is required")
     current = validate_public_url(url, allowed_domains)
     with httpx.Client(
         timeout=settings.ENRICHMENT_REQUEST_TIMEOUT,
         follow_redirects=False,
-        proxy=settings.ENRICHMENT_EGRESS_PROXY,
+        proxy=runtime_setting("ENRICHMENT_EGRESS_PROXY"),
     ) as client:
         robots_url = f"{urlparse(current).scheme}://{urlparse(current).netloc}/robots.txt"
         robots_response = client.get(robots_url, headers={"User-Agent": _user_agent()})

@@ -31,3 +31,4 @@ the real reason an option lost — are in `../../process/05-change-control.md`,
 | 0007 | Solo-operator approval model | Accepted | 2026-08-12 |
 | 0008 | Configuration-driven white-labelling and extraction profiles | Accepted | 2026-08-12 |
 | 0009 | Single-node Dokploy production topology | Accepted | 2026-08-12 |
+| 0010 | Web-managed configuration overrides | Accepted | 2026-08-12 |
