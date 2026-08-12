@@ -17,6 +17,7 @@ urlpatterns = [
         name="review_opportunity",
     ),
     path("exports/csv/", views.export_csv, name="export_csv"),
+    path("settings/", views.instance_settings, name="instance_settings"),
     path("sources/", views.sources, name="sources"),
     path("sources/gmail/connect/", views.gmail_connect, name="gmail_connect"),
     path("sources/gmail/callback/", views.gmail_callback, name="gmail_callback"),

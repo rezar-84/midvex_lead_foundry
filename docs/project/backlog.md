@@ -61,6 +61,7 @@ last-reviewed: 2026-08-12
 | MVX-024 | Dev run script wrapping sync/migrate/seed/runserver | 3 | devops-sre | — | Done | 2026-08-12 |
 | MVX-025 | Production deployment readiness for Dokploy at mlf.midvex.com | 1 | devops-sre | MVX-020 | Done (approved under ADR 0007; go-live per runbook) | 2026-08-12 |
 | MVX-026 | Staging smoke run and backup/restore drill on a local production-mode stack | 2 | devops-sre | MVX-025 | Done (Dokploy-host drill remains MVX-008) | 2026-08-12 |
+| MVX-027 | Read-only instance settings page for API/Google/gate configuration | 2 | ux-designer | MVX-020 | Done | 2026-08-12 |
 
 ## Dropped
 
