@@ -30,6 +30,53 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-024 — dev run script
+
+**Date:** 2026-08-12 **Tier:** 3
+**Status:** Done
+**Branch/commits:** `chore/MVX-024-dev-run-script`, merged to `main` with `--no-ff`
+
+### What changed
+
+New `scripts/run.sh`: sync, migrate, optional `--seed` (plus interactive demo
+password when unset), then runserver; README quickstart points at it.
+
+### Why
+
+The launch steps were four commands plus a non-obvious `changepassword demo`; one
+script removes the trap of a seeded admin with no password.
+
+### Verified
+
+`bash -n scripts/run.sh` clean; the has-usable-password shell snippet run against
+the seeded dev database printed `yes` as expected. Full check chain not rerun — no
+Python/template surface touched (docs + shell script only).
+
+### Not done
+
+Nothing deferred.
+
+### Discovered
+
+Nothing.
+
+### Decisions
+
+None durable; no ADR.
+
+### Assumptions used
+
+None.
+
+### Plan
+
+One-line: wrap the README launch steps in an idempotent script with a seed flag.
+
+### Reviews
+
+- devops-sre — Pass — `set -euo pipefail`, repo-root cd, exec'd server, no secrets
+  handled (password entry delegated to Django's interactive `changepassword`).
+
 ## MVX-021 — configuration truth and dead-code labelling
 
 **Date:** 2026-08-12 **Tier:** 2

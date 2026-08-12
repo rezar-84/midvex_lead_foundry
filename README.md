@@ -7,10 +7,16 @@ Private, evidence-linked relationship intelligence for reviewing opportunities i
 Requires Python 3.14 and `uv`.
 
 ```bash
+./scripts/run.sh --seed   # sync, migrate, seed demo data, set demo password, runserver
+```
+
+Or step by step:
+
+```bash
 uv sync --all-extras --dev
 uv run python manage.py migrate
 uv run python manage.py seed_demo
-uv run python manage.py createsuperuser
+uv run python manage.py changepassword demo
 uv run python manage.py runserver
 ```
 
