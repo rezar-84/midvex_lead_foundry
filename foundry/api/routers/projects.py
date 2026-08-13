@@ -18,6 +18,7 @@ from ninja.errors import HttpError
 from pydantic import Field
 
 from ...audit import record_event
+from ...dedup import merge_contacts
 from ...forms import LeadProjectForm, LeadSourceForm, ProductForm, TagForm
 from ...models import (
     BatchJob,
@@ -30,6 +31,7 @@ from ...models import (
     LeadProject,
     LeadSource,
     Membership,
+    MergeSuggestion,
     Organization,
     ProductConcept,
     ProjectEntity,
@@ -864,4 +866,126 @@ def product_create(
         product_group=product.product_group,
         description=product.description,
         status=product.status,
+    )
+
+
+# --- data quality (MVX-035) --------------------------------------------------
+
+
+class ContactRefOut(Schema):
+    id: str
+    display_name: str
+    primary_email: str
+    company_name: str | None
+
+
+class MergeSuggestionOut(Schema):
+    id: str
+    reason: str
+    status: str
+    primary: ContactRefOut
+    duplicate: ContactRefOut
+    created_at: datetime
+
+
+class MergeSuggestionPageOut(PageMeta):
+    items: list[MergeSuggestionOut]
+
+
+class MergeDecisionIn(Schema):
+    decision: str
+
+
+def _contact_ref(contact: Contact) -> ContactRefOut:
+    return ContactRefOut(
+        id=str(contact.id),
+        display_name=contact.display_name,
+        primary_email=contact.primary_email,
+        company_name=contact.company.name if contact.company else None,
+    )
+
+
+@router.post("/projects/{project_id}/dedup/start", response=JobOut, url_name="dedup_start")
+def dedup_start(request: HttpRequest, project_id: str) -> JobOut:
+    membership = require_membership(request, "run_batches")
+    project = _project_for(membership, project_id)
+    job = _create_job(request, project, BatchJob.Kind.DEDUP, "organization")
+    from ...tasks import run_contact_dedup
+
+    run_contact_dedup.delay(str(job.id))
+    return _job_out(job)
+
+
+@router.get("/merge-suggestions", response=MergeSuggestionPageOut, url_name="merge_suggestions")
+def merge_suggestions(
+    request: HttpRequest, status: str = "pending", page: int = 1
+) -> MergeSuggestionPageOut:
+    membership = require_membership(request, "view")
+    items = MergeSuggestion.objects.filter(organization=membership.organization).select_related(
+        "primary_contact__company", "duplicate_contact__company"
+    )
+    if status in {choice for choice, _ in MergeSuggestion.Status.choices}:
+        items = items.filter(status=status)
+    objects, meta = paginate_queryset(items.order_by("created_at"), page, per_page=50)
+    return MergeSuggestionPageOut(
+        items=[
+            MergeSuggestionOut(
+                id=str(suggestion.id),
+                reason=suggestion.reason,
+                status=suggestion.status,
+                primary=_contact_ref(suggestion.primary_contact),
+                duplicate=_contact_ref(suggestion.duplicate_contact),
+                created_at=suggestion.created_at,
+            )
+            for suggestion in objects
+        ],
+        **meta,
+    )
+
+
+@router.post(
+    "/merge-suggestions/{suggestion_id}/decide",
+    response=MergeSuggestionOut,
+    url_name="merge_suggestion_decide",
+)
+def merge_suggestion_decide(
+    request: HttpRequest, suggestion_id: str, payload: MergeDecisionIn
+) -> MergeSuggestionOut:
+    membership = require_membership(request, "review")
+    if payload.decision not in {"accepted", "rejected"}:
+        raise FormValidationError({"decision": ["Choose accept or reject."]})
+    with transaction.atomic():
+        suggestion = get_object_or_404(
+            MergeSuggestion.objects.select_for_update().select_related(
+                "primary_contact__company", "duplicate_contact__company"
+            ),
+            organization=membership.organization,
+            id=suggestion_id,
+            status=MergeSuggestion.Status.PENDING,
+        )
+        suggestion.status = payload.decision
+        suggestion.decided_by = cast(User, request.user)
+        suggestion.decided_at = timezone.now()
+        suggestion.save(update_fields=["status", "decided_by", "decided_at", "updated_at"])
+        if payload.decision == "accepted":
+            merge_contacts(
+                suggestion.primary_contact,
+                suggestion.duplicate_contact,
+                reason=f"suggestion:{suggestion.reason}",
+            )
+        record_event(
+            request,
+            membership.organization,
+            "merge_suggestion.decided",
+            object_type="merge_suggestion",
+            object_id=str(suggestion.id),
+            metadata={"decision": payload.decision, "reason": suggestion.reason},
+        )
+    return MergeSuggestionOut(
+        id=str(suggestion.id),
+        reason=suggestion.reason,
+        status=suggestion.status,
+        primary=_contact_ref(suggestion.primary_contact),
+        duplicate=_contact_ref(suggestion.duplicate_contact),
+        created_at=suggestion.created_at,
     )

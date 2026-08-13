@@ -527,6 +527,7 @@ class BatchJob(OrganizationOwnedModel):
         SYNC = "sync", "Source sync"
         ANALYZE = "analyze", "Entity analysis"
         ENRICH = "enrich", "Entity enrichment"
+        DEDUP = "dedup", "Contact deduplication"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -750,3 +751,40 @@ class InstanceSetting(TimestampedModel):
 
     key = models.CharField(max_length=64, unique=True)
     encrypted_value = models.TextField(blank=True)
+
+
+class MergeSuggestion(OrganizationOwnedModel):
+    """A proposed contact merge awaiting human review (MVX-035 data quality).
+
+    Exact-match duplicates are merged automatically by the dedup job; fuzzy
+    matches land here and follow the same human accept/reject pattern as
+    opportunity candidates.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    primary_contact = models.ForeignKey(
+        Contact, on_delete=models.CASCADE, related_name="merge_suggestions_as_primary"
+    )
+    duplicate_contact = models.ForeignKey(
+        Contact, on_delete=models.CASCADE, related_name="merge_suggestions_as_duplicate"
+    )
+    reason = models.CharField(max_length=64)
+    score = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "primary_contact", "duplicate_contact"],
+                name="unique_merge_suggestion_pair",
+            )
+        ]

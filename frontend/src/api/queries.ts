@@ -297,3 +297,35 @@ export function useUpdateInstanceSetting() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["instance-settings"] }),
   })
 }
+
+// --- data quality (MVX-035) -------------------------------------------------
+
+import type { MergeSuggestion } from "./types"
+
+export function useStartDedup(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Job>(`/api/projects/${projectId}/dedup/start`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["projects", projectId] }),
+  })
+}
+
+export function useMergeSuggestions(status: string, page: number) {
+  return useQuery({
+    queryKey: ["merge-suggestions", status, page],
+    queryFn: () =>
+      api.get<Page<MergeSuggestion>>(`/api/merge-suggestions?status=${status}&page=${page}`),
+  })
+}
+
+export function useDecideMergeSuggestion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: "accepted" | "rejected" }) =>
+      api.post<MergeSuggestion>(`/api/merge-suggestions/${id}/decide`, { decision }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["merge-suggestions"] })
+      void queryClient.invalidateQueries({ queryKey: ["projects"] })
+    },
+  })
+}
