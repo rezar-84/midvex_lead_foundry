@@ -1,3 +1,11 @@
+FROM node:22-alpine AS frontend
+
+WORKDIR /fe
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-fund --no-audit
+COPY frontend/ ./
+RUN npm run build
+
 FROM python:3.14-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_CACHE_DIR=/tmp/uv-cache
@@ -6,6 +14,7 @@ RUN pip install --no-cache-dir uv==0.11.22
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 COPY . .
+COPY --from=frontend /fe/dist /app/frontend/dist
 ENV PATH="/app/.venv/bin:$PATH"
 RUN python manage.py collectstatic --noinput \
  && mkdir -p /data/evidence && chown 10001:10001 /data/evidence
