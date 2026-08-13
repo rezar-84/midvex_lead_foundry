@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -118,11 +119,25 @@ TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "Europe/Istanbul")
 USE_I18N = True
 USE_TZ = True
 
+# Django's default logging hides 500 tracebacks when DEBUG is false (the console
+# handler is gated behind require_debug_true); route them to stderr for the
+# container log instead.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+}
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # Vite emits the SPA bundle here; collectstatic picks it up so WhiteNoise serves it.
 _FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 STATICFILES_DIRS = [_FRONTEND_DIST] if _FRONTEND_DIST.exists() else []
+# Vite content-hashes its assets (name-<hash>.ext); serve them immutable.
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: bool(  # noqa: E731
+    re.search(r"assets/.+-[A-Za-z0-9_-]{8,}\.\w+$", url)
+)
 STORAGES = {
     "staticfiles": {
         "BACKEND": (
