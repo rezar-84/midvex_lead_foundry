@@ -5,7 +5,7 @@ from collections.abc import Callable
 from decimal import Decimal
 from uuid import UUID
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .connectors import iter_source
@@ -17,6 +17,7 @@ from .models import (
     ContactMetric,
     EnrichmentResult,
     EntityRelationship,
+    LeadProject,
     LeadSource,
     MailboxConnection,
     ProductConcept,
@@ -58,6 +59,33 @@ def _cancel_requested(job: BatchJob) -> bool:
         BatchJob.objects.filter(id=job.id).values_list("status", flat=True).first()
         == BatchJob.Status.CANCELLED
     )
+
+
+def _maybe_enqueue_digest(job: BatchJob) -> None:
+    """Auto-digest: chain an analysis run onto a successful sync when the project opts in.
+
+    Hooked here rather than as a Celery chain so it behaves identically under
+    eager mode and survives worker restarts. The one_active_job_per_target
+    constraint collapses concurrent syncs onto a single pending digest.
+    """
+    project = job.project
+    project.refresh_from_db()
+    if not project.auto_digest_enabled or project.status != LeadProject.Status.ACTIVE:
+        return
+    try:
+        with transaction.atomic():
+            digest_job = BatchJob.objects.create(
+                organization=job.organization,
+                project=project,
+                kind=BatchJob.Kind.ANALYZE,
+                target_key="project",
+                created_by=job.created_by,
+            )
+    except IntegrityError:
+        return
+    from .tasks import run_entity_analysis
+
+    run_entity_analysis.delay(str(digest_job.id))
 
 
 def execute_sync_job(job_id: str) -> None:
@@ -136,6 +164,7 @@ def execute_sync_job(job_id: str) -> None:
         source.last_synced_at = timezone.now()
         source.save(update_fields=["status", "sync_cursor", "last_synced_at", "updated_at"])
         _finish(job, BatchJob.Status.SUCCEEDED)
+        _maybe_enqueue_digest(job)
     except PermissionError:
         source.status = LeadSource.Status.PAUSED
         source.save(update_fields=["status", "updated_at"])

@@ -152,6 +152,7 @@ export function ProjectDetailPage() {
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-primary">
             Project · {data.status}
+            {data.auto_digest_enabled ? " · auto-digest on" : ""}
           </p>
           <h1 className="text-3xl font-bold tracking-tight">{data.name}</h1>
         </div>

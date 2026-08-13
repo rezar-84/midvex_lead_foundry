@@ -43,6 +43,7 @@ export function ProjectForm({ project }: { project?: Project }) {
     monthly_request_budget: project?.monthly_request_budget ?? 1000,
     allowed_domains_text: project?.allowed_domains.join("\n") ?? "",
     network_execution_enabled: project?.network_execution_enabled ?? false,
+    auto_digest_enabled: project?.auto_digest_enabled ?? false,
   })
   const errors =
     mutation.error instanceof RequestError ? mutation.error.error.fields : null
@@ -151,6 +152,18 @@ export function ProjectForm({ project }: { project?: Project }) {
           </p>
           <FieldErrors errors={errors} name="allowed_domains_text" />
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={form.auto_digest_enabled}
+            onCheckedChange={(checked) =>
+              setForm({ ...form, auto_digest_enabled: checked === true })
+            }
+          />
+          Auto-digest
+          <span className="text-xs text-muted-foreground">
+            (run analysis automatically after every successful sync)
+          </span>
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             disabled={!networkEditable}

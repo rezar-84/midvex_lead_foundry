@@ -53,6 +53,7 @@ class LeadProjectForm(forms.ModelForm):  # type: ignore[type-arg]
             "monthly_request_budget",
             "allowed_domains_text",
             "network_execution_enabled",
+            "auto_digest_enabled",
         ]
         widgets = {"purpose": forms.Textarea(attrs={"rows": 4})}
 
