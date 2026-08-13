@@ -120,6 +120,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Vite emits the SPA bundle here; collectstatic picks it up so WhiteNoise serves it.
+_FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+STATICFILES_DIRS = [_FRONTEND_DIST] if _FRONTEND_DIST.exists() else []
 STORAGES = {
     "staticfiles": {
         "BACKEND": (
