@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-12
+last-reviewed: 2026-08-13
 ---
 
 # Assumptions, unknowns & risks — Midvex Lead Foundry
@@ -10,7 +10,7 @@ last-reviewed: 2026-08-12
 
 | # | Assumption | Why needed | What breaks if wrong | Who can confirm | Asked? | Since |
 | --- | --- | --- | --- | --- | --- | --- |
-| A1 | The pilot uses one personal Gmail account containing company mail imported over approximately nine years. | Defines the first source connector. | OAuth, volume and date-reconciliation design changes. | requester | yes; reported | 2026-08-11 |
+| A1 | The pilot starts from one personal Gmail account (~nine years of company mail); the product now supports multiple mailboxes/sources per organisation feeding one knowledge base (MVX-030..032), so additional authorised sources may join the pilot. | Defines connector and identity-resolution scope. | OAuth, volume, dedup and date-reconciliation design changes. | requester | yes; updated 2026-08-13 | 2026-08-13 |
 | A2 | Dokploy can inject secrets and run the declared containers. | Defines deployment shape. | Deployment and secret controls must change. | infrastructure owner | partially | 2026-08-11 |
 | A3 | Turkish and English cover the material pilot archive. | Defines evaluation/localisation scope. | Extraction and review quality are incomplete. | archive owner | yes; reported | 2026-08-11 |
 
@@ -40,6 +40,7 @@ last-reviewed: 2026-08-12
 | R5 | Spam or malicious attachments reach parsers/models | Resource abuse or compromise | possible | Gmail/header/Rspamd quarantine, MIME limits, ClamAV and non-execution. | security |
 | R6 | Future SaaS work assumes pilot isolation is externally verified | Cross-tenant exposure | possible | Separate MVX-014 gate and adversarial isolation review. | security |
 | R7 | Message-derived URLs cause SSRF or uncontrolled crawling | Infrastructure compromise, excessive collection or cost | possible | Deny non-public addresses, require allowlists/budgets, cap redirects/bytes/depth and disable network execution by default. | security |
+| R8 | SPA/static pipeline regression: the Vite bundle is fingerprinted by collectstatic and served by WhiteNoise; a build/manifest mismatch would ship a blank UI. | Broken interface after deploy. | Build-time `collectstatic` in the image, catch-all ordering test, `npm run build` in the check sequence, MVX-030 deploy smoke-checked. | devops-sre | open | 2026-08-13 |
 
 ## Accepted risks
 

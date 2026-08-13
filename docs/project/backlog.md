@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-12
+last-reviewed: 2026-08-13
 ---
 
 # Backlog — Midvex Lead Foundry
@@ -10,6 +10,7 @@ last-reviewed: 2026-08-12
 
 | ID | Task | Tier | Owner role | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
+| MVX-036 | Hardening after the SPA rebuild: production error logging, cache headers, smoke checklist | 2 | devops-sre | MVX-030–035 | In progress |
 
 ## Next
 
@@ -40,7 +41,7 @@ last-reviewed: 2026-08-12
 | --- | --- | --- | --- | --- | --- | --- |
 | MVX-010 | Add multiple Gmail and standards-based IMAP source adapters | 1 | architect | pilot quality accepted | Deferred | one-mailbox pilot is accepted |
 | MVX-011 | Add metered public-web enrichment with approved source policies | 1 | privacy-legal | processor/source approval | Deferred | mail-only candidate quality is known |
-| MVX-012 | Add an Odoo 19 JSON-2 destination adapter | 1 | architect | MVX-007 | Deferred | standalone review workflow is accepted |
+| MVX-012 | Add an Odoo 19 JSON-2 destination adapter (first enrichment-agent/CRM connector of the expanded vision) | 1 | architect | MVX-007 | Deferred | standalone review workflow is accepted |
 | MVX-013 | Add additional CRM destination adapters | 1 | architect | MVX-012 | Deferred | a named customer CRM is prioritised |
 | MVX-014 | Complete external Google OAuth verification and SaaS isolation gate | 1 | security | commercialisation decision | Deferred | external customer onboarding is authorised |
 | MVX-015 | Add WhatsApp and other chat source adapters | 1 | privacy-legal | platform access and processing authority | Deferred | a specific channel/export path is approved |
@@ -51,6 +52,12 @@ last-reviewed: 2026-08-12
 
 | ID | Task | Tier | Owner role | Depends on | Status | Completed |
 | --- | --- | --- | --- | --- | --- | --- |
+| MVX-030 | API and SPA foundation: django-ninja /api/, MFA JSON auth, Vite+React+Tailwind+shadcn scaffold, SPA catch-all, multi-stage Docker build | 1 | architect | MVX-029 | Done (owner-approved fast-ship mode; deployed) | 2026-08-13 |
+| MVX-031 | Core review loop rebuilt in the SPA (dashboard, opportunities, conversations, knowledge, export) | 2 | product-manager | MVX-030 | Done | 2026-08-13 |
+| MVX-032 | Projects layer rebuilt in the SPA; Gmail OAuth moved to /integrations/gmail/; legacy templates deleted | 1 | architect | MVX-031 | Done (GOOGLE_REDIRECT_URI env + Google console update required at deploy) | 2026-08-13 |
+| MVX-033 | Consolidated documentation update for the SPA/auto-digest/dedup repositioning | 3 | product-manager | MVX-030–035 | Done | 2026-08-13 |
+| MVX-034 | Auto-digest mode: successful syncs auto-enqueue analysis on opted-in active projects | 2 | product-manager | MVX-032 | Done | 2026-08-13 |
+| MVX-035 | Contact dedup and data cleaning: exact auto-merge, fuzzy merge suggestions, data-quality review page | 1 | architect | MVX-032 | Done | 2026-08-13 |
 | MVX-001 | Establish the governed standalone synthetic pilot foundation | 1 | architect | — | Done (approved under ADR 0007; synthetic only) | 2026-08-12 |
 | MVX-016 | Operate projects, lead sources, batch entity processing and gated enrichment through the product UI | 1 | product-manager | MVX-001 | Done (approved under ADR 0007; real execution still subject to MVX-009/MVX-011) | 2026-08-12 |
 | MVX-017 | Record approvals, resolve U1, commit and merge MVX-001/MVX-016 | 2 | product-manager | — | Done | 2026-08-12 |

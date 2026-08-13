@@ -1,7 +1,7 @@
 ---
 status: active
 owner: Rezar86
-last-reviewed: 2026-08-12
+last-reviewed: 2026-08-13
 ---
 
 # Project charter — Midvex Lead Foundry
@@ -11,7 +11,7 @@ last-reviewed: 2026-08-12
 | | |
 | --- | --- |
 | **Project** | Midvex Lead Foundry |
-| **What it is** | A private relationship-intelligence application that recovers reviewable sales opportunities from authorised historical communications. |
+| **What it is** | A private, white-label relationship-intelligence application that mines authorised historical communications (multiple mailboxes, one organisation-wide knowledge base) into evidence-linked sales leads, with human review of every candidate, optional auto-digest extraction, and audited contact dedup. |
 | **Work item prefix** | `MVX` |
 | **Repository** | `/home/rubuntu/Projects/midvex_lead_foundry` |
 | **Accountable human** | Rezar86 (paraxweb@gmail.com) — recorded 2026-08-12; see ADR 0007. |
@@ -22,12 +22,13 @@ last-reviewed: 2026-08-12
 | --- | --- |
 | Language / runtime | Python 3.14 |
 | Package manager | uv |
-| Framework(s) | Django 5.2 LTS; Celery 5.6 |
+| Framework(s) | Django 5.2 LTS; Celery 5.6; django-ninja (first-party JSON API at /api/) |
 | Data store | PostgreSQL 17; Redis; S3-compatible encrypted object storage |
 | Auth | Local Django accounts, Argon2 passwords, mandatory TOTP MFA, organisation-scoped RBAC |
 | Hosting | Private Dokploy container stack |
 | CI | Repository-local checks; hosted CI unknown |
-| Test tooling | pytest, pytest-django, Ruff, mypy, Bandit, pip-audit |
+| Test tooling | pytest, pytest-django, Ruff, mypy, Bandit, pip-audit; tsc + Vite build as the frontend gate |
+| Frontend | React 19 + Vite + TypeScript + Tailwind 4 + shadcn/ui SPA in `frontend/` (npm), served by Django via catch-all + WhiteNoise |
 
 ## Constraints
 
@@ -45,7 +46,7 @@ last-reviewed: 2026-08-12
 | Stage | Command |
 | --- | --- |
 | Install | `uv sync --all-extras --dev` |
-| Run locally | `uv run python manage.py runserver` |
+| Run locally | `uv run python manage.py runserver` (+ `npm --prefix frontend run dev` for the SPA) |
 | `checks.format` | `uv run ruff format --check .` |
 | `checks.lint` | `uv run ruff check .` |
 | `checks.typecheck` | `uv run mypy foundry lead_foundry` |
@@ -54,7 +55,8 @@ last-reviewed: 2026-08-12
 | `checks.contract` | `uv run pytest -m contract` |
 | `checks.build` | `uv build` |
 | `checks.scan` | `uv run bandit -q -r foundry lead_foundry && uv run pip-audit` |
-| `checks.a11y` | `uv run python scripts/check_a11y.py` |
+| `checks.a11y` | `uv run python scripts/check_a11y.py` (surviving login/MFA templates only; SPA a11y pass deferred) |
+| `checks.frontend` | `npm --prefix frontend run typecheck && npm --prefix frontend run build` |
 | `checks.e2e` | `uv run pytest -m e2e` |
 
 ## Environments
