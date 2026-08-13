@@ -124,6 +124,7 @@ class ProjectOut(Schema):
     monthly_request_budget: int
     allowed_domains: list[str]
     network_execution_enabled: bool
+    auto_digest_enabled: bool
     updated_at: datetime
 
 
@@ -269,6 +270,7 @@ def _project_out(project: LeadProject) -> ProjectOut:
         monthly_request_budget=project.monthly_request_budget,
         allowed_domains=[str(domain) for domain in project.allowed_domains],
         network_execution_enabled=project.network_execution_enabled,
+        auto_digest_enabled=project.auto_digest_enabled,
         updated_at=project.updated_at,
     )
 
@@ -796,9 +798,7 @@ def tag_list(request: HttpRequest, project_id: str) -> list[TagOut]:
 
 
 @router.post("/projects/{project_id}/tags", response=TagOut, url_name="project_tag_create")
-def tag_create(
-    request: HttpRequest, project_id: str, payload: Body[dict[str, Any]]
-) -> TagOut:
+def tag_create(request: HttpRequest, project_id: str, payload: Body[dict[str, Any]]) -> TagOut:
     membership = require_membership(request, "run_batches")
     project = _project_for(membership, project_id)
     form = TagForm(payload)

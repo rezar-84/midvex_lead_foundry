@@ -442,6 +442,7 @@ class LeadProject(OrganizationOwnedModel):
     monthly_request_budget = models.PositiveIntegerField(default=1000)
     allowed_domains = models.JSONField(default=list, blank=True)
     network_execution_enabled = models.BooleanField(default=False)
+    auto_digest_enabled = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

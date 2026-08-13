@@ -109,6 +109,7 @@ export interface Project {
   monthly_request_budget: number
   allowed_domains: string[]
   network_execution_enabled: boolean
+  auto_digest_enabled: boolean
   updated_at: string
 }
 
@@ -249,6 +250,7 @@ export interface ProjectPayload {
   monthly_request_budget: number
   allowed_domains_text: string
   network_execution_enabled: boolean
+  auto_digest_enabled: boolean
 }
 
 export interface SourcePayload {

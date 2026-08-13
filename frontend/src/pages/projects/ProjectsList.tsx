@@ -35,9 +35,12 @@ export function ProjectsListPage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-semibold">{project.name}</h2>
-                <Badge variant="secondary" className="capitalize">
-                  {project.status}
-                </Badge>
+                <span className="flex gap-1">
+                  {project.auto_digest_enabled ? <Badge>Auto-digest</Badge> : null}
+                  <Badge variant="secondary" className="capitalize">
+                    {project.status}
+                  </Badge>
+                </span>
               </div>
               <p className="line-clamp-2 text-sm text-muted-foreground">{project.purpose}</p>
               <p className="text-xs text-muted-foreground">
