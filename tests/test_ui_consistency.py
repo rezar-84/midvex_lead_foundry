@@ -105,14 +105,6 @@ def test_contacts_paginate(mfa_session, workspace):
 
 
 @pytest.mark.django_db
-def test_opportunities_filter_shows_active_state(mfa_session, workspace):
-    response = mfa_session.get(reverse("opportunities"))
-    content = response.content.decode()
-    assert '?status=pending" aria-current="true"' in content
-    assert '?status=accepted" aria-current="true"' not in content
-
-
-@pytest.mark.django_db
 def test_mfa_setup_renders_qr_code(client, db):
     user = get_user_model().objects.create_user(
         username="fresh-user",
@@ -139,10 +131,8 @@ def test_empty_states_render(mfa_session, workspace):
     organization, _, _, _ = workspace
     project = create_project(organization)
     contacts = mfa_session.get(reverse("project_contacts", args=[project.id]))
-    conversations = mfa_session.get(reverse("conversations"))
     jobs = mfa_session.get(reverse("project_jobs", args=[project.id]))
     assert "No contacts yet" in contacts.content.decode()
-    assert "No conversations imported" in conversations.content.decode()
     assert "No jobs have been started" in jobs.content.decode()
 
 

@@ -6,16 +6,8 @@ urlpatterns = [
     path("health/", views.health, name="health"),
     path("mfa/setup/", views.mfa_setup, name="mfa_setup"),
     path("mfa/verify/", views.mfa_verify, name="mfa_verify"),
-    path("", views.dashboard, name="dashboard"),
-    path("conversations/", views.conversations, name="conversations"),
-    path("knowledge/", views.knowledge, name="knowledge"),
-    path("opportunities/", views.opportunities, name="opportunities"),
-    path("opportunities/<uuid:candidate_id>/", views.opportunity_detail, name="opportunity_detail"),
-    path(
-        "opportunities/<uuid:candidate_id>/review/",
-        views.review_opportunity,
-        name="review_opportunity",
-    ),
+    # Dashboard, opportunities, conversations and knowledge are SPA pages now
+    # (served by the catch-all in lead_foundry/urls.py, backed by /api/).
     path("exports/csv/", views.export_csv, name="export_csv"),
     path("settings/", views.instance_settings, name="instance_settings"),
     path(
