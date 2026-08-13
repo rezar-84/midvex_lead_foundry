@@ -266,3 +266,19 @@ export interface SourcePayload {
   max_messages_per_run: number
   confirm_authority: boolean
 }
+
+export interface ContactRef {
+  id: string
+  display_name: string
+  primary_email: string
+  company_name: string | null
+}
+
+export interface MergeSuggestion {
+  id: string
+  reason: string
+  status: "pending" | "accepted" | "rejected"
+  primary: ContactRef
+  duplicate: ContactRef
+  created_at: string
+}

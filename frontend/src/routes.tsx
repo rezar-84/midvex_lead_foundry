@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router"
 import { AppShell } from "@/components/AppShell"
 import { ConversationsPage } from "@/pages/Conversations"
 import { DashboardPage } from "@/pages/Dashboard"
+import { DataQualityPage } from "@/pages/DataQuality"
 import { KnowledgePage } from "@/pages/Knowledge"
 import { OpportunitiesPage } from "@/pages/Opportunities"
 import { OpportunityDetailPage } from "@/pages/OpportunityDetail"
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: "opportunities/:candidateId", element: <OpportunityDetailPage /> },
       { path: "conversations", element: <ConversationsPage /> },
       { path: "knowledge", element: <KnowledgePage /> },
+      { path: "data-quality", element: <DataQualityPage /> },
       { path: "sources", element: <SourcesPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "*", element: <Placeholder title="Not found" /> },

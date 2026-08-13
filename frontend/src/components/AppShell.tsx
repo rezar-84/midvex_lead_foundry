@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/opportunities", label: "Opportunities", capability: "view" },
   { to: "/conversations", label: "Conversations", capability: "view" },
   { to: "/knowledge", label: "Knowledge", capability: "view" },
+  { to: "/data-quality", label: "Data quality", capability: "view" },
   { to: "/sources", label: "Sources", capability: "manage_sources" },
   { to: "/settings", label: "Settings", capability: "manage_users" },
 ]

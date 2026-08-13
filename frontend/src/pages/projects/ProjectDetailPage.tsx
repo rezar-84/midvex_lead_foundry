@@ -1,7 +1,7 @@
-import { Play, Plus, RefreshCw } from "lucide-react"
+import { Play, Plus, RefreshCw, Sparkles } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
 
-import { useMe, useProject, useStartAnalysis, useSyncSource } from "@/api/queries"
+import { useMe, useProject, useStartAnalysis, useStartDedup, useSyncSource } from "@/api/queries"
 import type { Job, Source } from "@/api/types"
 import { CapabilityGate } from "@/components/CapabilityGate"
 import { EmptyState, formatDateTime } from "@/components/shared"
@@ -138,6 +138,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const { data, isPending } = useProject(projectId ?? "")
   const analysis = useStartAnalysis(projectId ?? "")
+  const dedup = useStartDedup(projectId ?? "")
   const navigate = useNavigate()
   const { data: me } = useMe()
 
@@ -157,24 +158,40 @@ export function ProjectDetailPage() {
           <h1 className="text-3xl font-bold tracking-tight">{data.name}</h1>
         </div>
         <CapabilityGate capability="run_batches">
-          <Button
-            className="gap-1.5"
-            disabled={analysis.isPending}
-            onClick={() =>
-              analysis.mutate(undefined, {
-                onSuccess: (job) => navigate(`/projects/${projectId}/jobs/${job.id}`),
-              })
-            }
-          >
-            <Play className="size-4" aria-hidden />
-            Start analysis
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              disabled={dedup.isPending}
+              onClick={() =>
+                dedup.mutate(undefined, {
+                  onSuccess: (job) => navigate(`/projects/${projectId}/jobs/${job.id}`),
+                })
+              }
+            >
+              <Sparkles className="size-4" aria-hidden />
+              Run dedup
+            </Button>
+            <Button
+              className="gap-1.5"
+              disabled={analysis.isPending}
+              onClick={() =>
+                analysis.mutate(undefined, {
+                  onSuccess: (job) => navigate(`/projects/${projectId}/jobs/${job.id}`),
+                })
+              }
+            >
+              <Play className="size-4" aria-hidden />
+              Start analysis
+            </Button>
+          </div>
         </CapabilityGate>
       </div>
       <ProjectNav projectId={data.id} active="operations" />
       {analysis.isError ? (
         <p className="text-sm text-destructive">{analysis.error.message}</p>
       ) : null}
+      {dedup.isError ? <p className="text-sm text-destructive">{dedup.error.message}</p> : null}
       <div className="grid gap-6 sm:grid-cols-4">
         {(
           [

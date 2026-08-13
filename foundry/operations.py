@@ -12,6 +12,7 @@ from .connectors import iter_source
 from .enrichment import FetchedPage, fetch_public_page
 from .heuristics import CompiledProfile, active_profile
 from .models import (
+    AuditEvent,
     BatchJob,
     Contact,
     ContactMetric,
@@ -411,3 +412,57 @@ def execute_enrichment_job(
         )
     final_status = BatchJob.Status.PARTIAL if job.error_count else BatchJob.Status.SUCCEEDED
     _finish(job, final_status)
+
+
+def execute_dedup_job(job_id: str) -> None:
+    """MVX-035 data quality: auto-merge exact email duplicates, suggest fuzzy ones."""
+    from .dedup import find_exact_duplicates, find_fuzzy_pairs, merge_contacts
+
+    job = BatchJob.objects.select_related("project", "organization").get(id=job_id)
+    if job.status == BatchJob.Status.CANCELLED:
+        return
+    job.status = BatchJob.Status.RUNNING
+    job.started_at = timezone.now()
+    job.save(update_fields=["status", "started_at", "updated_at"])
+    try:
+        organization = job.organization
+        exact_groups = find_exact_duplicates(organization)
+        fuzzy_pairs = list(find_fuzzy_pairs(organization))
+        job.progress_total = len(exact_groups) + len(fuzzy_pairs)
+        job.save(update_fields=["progress_total", "updated_at"])
+        merged = 0
+        suggested = 0
+        for group in exact_groups:
+            if job.progress_processed % CANCEL_CHECK_INTERVAL == 0 and _cancel_requested(job):
+                return
+            primary = group[0]
+            for duplicate in group[1:]:
+                merge_contacts(primary, duplicate, reason="same_normalized_email")
+                merged += 1
+            job.progress_processed += 1
+            job.save(update_fields=["progress_processed", "updated_at"])
+        from .models import MergeSuggestion
+
+        for primary, duplicate, reason in fuzzy_pairs:
+            _, created = MergeSuggestion.objects.get_or_create(
+                organization=organization,
+                primary_contact=primary,
+                duplicate_contact=duplicate,
+                defaults={"reason": reason},
+            )
+            suggested += int(created)
+            job.progress_processed += 1
+            job.save(update_fields=["progress_processed", "updated_at"])
+        job.progress_total = job.progress_processed
+        job.save(update_fields=["progress_total", "updated_at"])
+        AuditEvent.objects.create(
+            organization=organization,
+            actor=job.created_by,
+            event_type="dedup.completed",
+            object_type="batch_job",
+            object_id=str(job.id),
+            metadata={"merged": merged, "suggested": suggested},
+        )
+        _finish(job, BatchJob.Status.SUCCEEDED)
+    except Exception as exc:
+        _finish(job, BatchJob.Status.FAILED, type(exc).__name__.upper()[:100])
