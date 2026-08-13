@@ -4,7 +4,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
-from django.urls import reverse
 
 from foundry.connectors import SYNTHETIC_INTERNAL_ADDRESS, SYNTHETIC_INTERNAL_DOMAIN
 from foundry.heuristics import compile_rules, default_profile, validate_field_rules
@@ -132,14 +131,8 @@ def test_provision_is_idempotent_and_never_echoes_password(capsys, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_brand_name_flows_from_settings(client, settings, db):
+def test_brand_name_flows_from_settings(mfa_session, settings):
     settings.FOUNDRY_BRAND_NAME = "Acme Lead Desk"
-    user = get_user_model().objects.create_user(
-        username="brand-user",
-        password="a-strong-test-password",  # noqa: S106
-    )
-    client.force_login(user)
-    response = client.get(reverse("mfa_setup"))
-    content = response.content.decode()
-    assert "Acme Lead Desk" in content
-    assert "issuer=Acme%20Lead%20Desk" in content
+    response = mfa_session.get("/api/me")
+    assert response.status_code == 200
+    assert response.json()["brand_name"] == "Acme Lead Desk"

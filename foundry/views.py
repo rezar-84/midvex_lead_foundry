@@ -7,7 +7,6 @@ from typing import cast
 import pyotp
 import segno
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import HttpRequest, HttpResponse
@@ -21,8 +20,8 @@ from .crypto import decrypt, encrypt
 from .exports import accepted_candidates_csv
 from .forms import MFAForm, SourceConnectForm
 from .gmail import READONLY_SCOPE, oauth_flow
-from .models import LeadSource, MailboxConnection, MFADevice
-from .runtime_settings import EDITABLE_KEYS, runtime_setting, set_runtime_setting
+from .models import LeadProject, LeadSource, MailboxConnection, MFADevice
+from .runtime_settings import runtime_setting
 
 
 def health(request: HttpRequest) -> HttpResponse:
@@ -98,37 +97,43 @@ def export_csv(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
-@require_capability("manage_sources")
-def sources(request: HttpRequest) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    mailboxes = MailboxConnection.objects.filter(organization=membership.organization).order_by(
-        "email_address"
-    )
-    return render(
-        request,
-        "foundry/sources.html",
-        {
-            "mailboxes": mailboxes,
-            "form": SourceConnectForm(),
-            "gmail_enabled": settings.GMAIL_REAL_DATA_ENABLED,
-        },
-    )
-
-
-@login_required
 @require_POST
 @require_capability("manage_sources")
 def gmail_connect(request: HttpRequest) -> HttpResponse:
     membership = request.membership  # type: ignore[attr-defined]
     form = SourceConnectForm(request.POST)
     if not form.is_valid() or not membership.organization.retention_days:
-        messages.error(
-            request, "Authority confirmation and an organisation retention policy are required."
-        )
-        return redirect("sources")
+        # /sources is an SPA route; it reads the error flag from the query string.
+        return redirect("/sources?error=requirements")
     state = secrets.token_urlsafe(32)
     request.session["gmail_oauth_state"] = state
     request.session["gmail_policy_confirmed"] = True
+    flow = oauth_flow(state=state)
+    url, _ = flow.authorization_url(
+        access_type="offline", include_granted_scopes="true", prompt="consent"
+    )
+    return redirect(url)
+
+
+@login_required
+@require_POST
+@require_capability("manage_sources")
+def source_gmail_connect(request: HttpRequest, project_id: str, source_id: str) -> HttpResponse:
+    membership = request.membership  # type: ignore[attr-defined]
+    project = get_object_or_404(LeadProject, id=project_id, organization=membership.organization)
+    source = get_object_or_404(
+        LeadSource,
+        project=project,
+        id=source_id,
+        source_type=LeadSource.SourceType.GMAIL,
+    )
+    source_page = f"/projects/{project.id}/sources/{source.id}"
+    if not settings.SOURCE_NETWORK_ENABLED or not project.network_execution_enabled:
+        return redirect(f"{source_page}?error=network_disabled")
+    state = secrets.token_urlsafe(32)
+    request.session["gmail_oauth_state"] = state
+    request.session["gmail_policy_confirmed"] = True
+    request.session["gmail_lead_source_id"] = str(source.id)
     flow = oauth_flow(state=state)
     url, _ = flow.authorization_url(
         access_type="offline", include_granted_scopes="true", prompt="consent"
@@ -192,127 +197,6 @@ def gmail_callback(request: HttpRequest) -> HttpResponse:
         object_id=str(mailbox.id),
         metadata={"provider": "gmail"},
     )
-    messages.success(request, "Gmail source connected with read-only access.")
     if lead_source:
-        return redirect(
-            "project_source_detail",
-            project_id=lead_source.project_id,
-            source_id=lead_source.id,
-        )
-    return redirect("sources")
-
-
-def _mask(value: str) -> str:
-    if not value:
-        return ""
-    return f"{value[:4]}…{value[-2:]}" if len(value) > 8 else "set"
-
-
-@login_required
-@require_capability("manage_users")
-def instance_settings(request: HttpRequest) -> HttpResponse:
-    groups = [
-        (
-            "Branding & locale",
-            [
-                ("Brand name", runtime_setting("FOUNDRY_BRAND_NAME"), "FOUNDRY_BRAND_NAME"),
-                (
-                    "Enrichment user-agent",
-                    runtime_setting("FOUNDRY_USER_AGENT"),
-                    "FOUNDRY_USER_AGENT",
-                ),
-                ("Language code", settings.LANGUAGE_CODE, "DJANGO_LANGUAGE_CODE"),
-                (
-                    "Languages",
-                    ", ".join(code for code, _ in settings.LANGUAGES),
-                    "DJANGO_LANGUAGES",
-                ),
-                ("Time zone", settings.TIME_ZONE, "DJANGO_TIME_ZONE"),
-            ],
-        ),
-        (
-            "Google OAuth (Gmail read-only)",
-            [
-                ("Client ID", _mask(runtime_setting("GOOGLE_CLIENT_ID")), "GOOGLE_CLIENT_ID"),
-                (
-                    "Client secret",
-                    "set" if runtime_setting("GOOGLE_CLIENT_SECRET") else "",
-                    "GOOGLE_CLIENT_SECRET",
-                ),
-                ("Redirect URI", runtime_setting("GOOGLE_REDIRECT_URI"), "GOOGLE_REDIRECT_URI"),
-            ],
-        ),
-        (
-            "Policy gates (human approval required to enable)",
-            [
-                (
-                    "Real Gmail data",
-                    "enabled" if settings.GMAIL_REAL_DATA_ENABLED else "disabled",
-                    "GMAIL_REAL_DATA_ENABLED",
-                ),
-                (
-                    "External source sync",
-                    "enabled" if settings.SOURCE_NETWORK_ENABLED else "disabled",
-                    "SOURCE_NETWORK_ENABLED",
-                ),
-                (
-                    "Enrichment network",
-                    "enabled" if settings.ENRICHMENT_NETWORK_ENABLED else "disabled",
-                    "ENRICHMENT_NETWORK_ENABLED",
-                ),
-                (
-                    "Enrichment egress proxy",
-                    "set" if runtime_setting("ENRICHMENT_EGRESS_PROXY") else "",
-                    "ENRICHMENT_EGRESS_PROXY",
-                ),
-            ],
-        ),
-        (
-            "Storage & limits",
-            [
-                ("Evidence backend", settings.RAW_STORAGE_BACKEND, "RAW_STORAGE_BACKEND"),
-                ("S3 bucket", settings.S3_BUCKET or "", "S3_BUCKET"),
-                ("S3 endpoint", settings.S3_ENDPOINT_URL or "", "S3_ENDPOINT_URL"),
-                (
-                    "Max message size",
-                    f"{settings.MAX_MESSAGE_BYTES // (1024 * 1024)} MB",
-                    "MAX_MESSAGE_BYTES",
-                ),
-                (
-                    "Token encryption key",
-                    "set" if settings.TOKEN_ENCRYPTION_KEY else "derived (dev only)",
-                    "TOKEN_ENCRYPTION_KEY",
-                ),
-            ],
-        ),
-    ]
-    return render(
-        request,
-        "foundry/instance_settings.html",
-        {"groups": groups, "editable_keys": set(EDITABLE_KEYS)},
-    )
-
-
-@login_required
-@require_POST
-@require_capability("manage_users")
-def instance_setting_update(request: HttpRequest) -> HttpResponse:
-    key = request.POST.get("key", "")
-    if key not in EDITABLE_KEYS:
-        messages.error(request, "That setting is not editable from the interface.")
-        return redirect("instance_settings")
-    value = request.POST.get("value", "").strip()
-    set_runtime_setting(key, value)
-    membership = request.membership  # type: ignore[attr-defined]
-    record_event(
-        request,
-        membership.organization,
-        "instance_setting.updated",
-        object_type="instance_setting",
-        object_id=key,
-        metadata={"cleared": not value},
-    )
-    messages.success(
-        request, f"{EDITABLE_KEYS[key].label} {'cleared' if not value else 'updated'}."
-    )
-    return redirect("instance_settings")
+        return redirect(f"/projects/{lead_source.project_id}/sources/{lead_source.id}?connected=1")
+    return redirect("/sources?connected=1")

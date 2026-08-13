@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ brand_name }}{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'foundry/app.css' %}">
-  <link rel="stylesheet" href="{% static 'foundry/knowledge.css' %}">
-  <link rel="stylesheet" href="{% static 'foundry/operations.css' %}">
   <link rel="stylesheet" href="{% static 'foundry/controls.css' %}">
-  <link rel="stylesheet" href="{% static 'foundry/enrichment.css' %}">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -18,12 +15,12 @@
     {% if user.is_authenticated %}
       <nav aria-label="Primary">
         <a href="/">Overview</a>
-        <a href="{% url 'project_list' %}">Projects</a>
+        <a href="/projects">Projects</a>
         <a href="/opportunities">Opportunities</a>
         <a href="/conversations">Conversations</a>
         <a href="/knowledge">Knowledge</a>
-        {% if "manage_sources" in capabilities %}<a href="{% url 'sources' %}">Sources</a>{% endif %}
-        {% if "manage_users" in capabilities %}<a href="{% url 'instance_settings' %}">Settings</a>{% endif %}
+        {% if "manage_sources" in capabilities %}<a href="/sources">Sources</a>{% endif %}
+        {% if "manage_users" in capabilities %}<a href="/settings">Settings</a>{% endif %}
       </nav>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button">Sign out</button></form>
     {% endif %}

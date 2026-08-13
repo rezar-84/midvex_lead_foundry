@@ -46,49 +46,56 @@ def _add_contacts(project, count: int) -> list[Contact]:
 
 
 @pytest.mark.django_db
-def test_nav_hides_tags_and_settings_from_reviewer(client, workspace):
+def test_analyst_cannot_start_enrichment(client, workspace):
     organization, _, _, _ = workspace
     project = create_project(organization)
-    _login_role(client, organization, Membership.Role.REVIEWER, "nav-reviewer")
-
-    response = client.get(reverse("project_contacts", args=[project.id]))
-    content = response.content.decode()
-    assert response.status_code == 200
-    assert reverse("project_tags", args=[project.id]) not in content
-    assert reverse("project_settings", args=[project.id]) not in content
-
-
-@pytest.mark.django_db
-def test_analyst_sees_tag_controls_but_not_enrichment(client, workspace):
-    organization, _, _, _ = workspace
-    project = create_project(organization)
-    _add_contacts(project, 1)
+    contacts = _add_contacts(project, 1)
     _login_role(client, organization, Membership.Role.ANALYST, "bulk-analyst")
 
-    response = client.get(reverse("project_contacts", args=[project.id]))
-    content = response.content.decode()
-    assert "Assign tag" in content
-    assert "Start enrichment" not in content
-    assert reverse("project_tags", args=[project.id]) in content
+    response = client.post(
+        f"/api/projects/{project.id}/enrichment/start",
+        data={
+            "contact_ids": [str(contacts[0].id)],
+            "request_budget": 5,
+            "confirm_scope": True,
+        },
+        content_type="application/json",
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
 
 
 @pytest.mark.django_db
-def test_enrichment_form_error_preserves_selection(mfa_session, workspace):
+def test_enrichment_start_requires_confirmed_scope(mfa_session, workspace):
     organization, _, _, _ = workspace
     project = create_project(organization)
     contacts = _add_contacts(project, 2)
 
     response = mfa_session.post(
-        reverse("project_enrichment_start", args=[project.id]),
-        {"contact_ids": [str(contacts[0].id)], "request_budget": 5},
+        f"/api/projects/{project.id}/enrichment/start",
+        data={
+            "contact_ids": [str(contacts[0].id)],
+            "request_budget": 5,
+            "confirm_scope": False,
+        },
+        content_type="application/json",
     )
-    content = response.content.decode()
     assert response.status_code == 400
-    assert "This field is required." in content
-    assert f'value="{contacts[0].id}"\n                     checked' in content or (
-        f'value="{contacts[0].id}"' in content and "checked" in content
+    error = response.json()["error"]
+    assert error["code"] == "validation_error"
+    assert "confirm_scope" in error["fields"]
+
+    invalid_ids = mfa_session.post(
+        f"/api/projects/{project.id}/enrichment/start",
+        data={
+            "contact_ids": ["11111111-1111-1111-1111-111111111111"],
+            "request_budget": 5,
+            "confirm_scope": True,
+        },
+        content_type="application/json",
     )
-    assert f'value="{contacts[1].id}"' in content
+    assert invalid_ids.status_code == 400
+    assert "contact_ids" in invalid_ids.json()["error"]["fields"]
 
 
 @pytest.mark.django_db
@@ -97,11 +104,14 @@ def test_contacts_paginate(mfa_session, workspace):
     project = create_project(organization)
     _add_contacts(project, 60)
 
-    first = mfa_session.get(reverse("project_contacts", args=[project.id]))
-    second = mfa_session.get(reverse("project_contacts", args=[project.id]), {"page": 2})
-    assert len(first.context["rows"]) == 50
-    assert len(second.context["rows"]) == 10
-    assert "Page 1 of 2" in first.content.decode()
+    first = mfa_session.get(f"/api/projects/{project.id}/contacts")
+    second = mfa_session.get(f"/api/projects/{project.id}/contacts?page=2")
+    assert first.status_code == 200
+    assert first.json()["count"] == 60
+    assert first.json()["pages"] == 2
+    assert first.json()["per_page"] == 50
+    assert len(first.json()["items"]) == 50
+    assert len(second.json()["items"]) == 10
 
 
 @pytest.mark.django_db
@@ -127,31 +137,24 @@ def test_login_page_uses_shared_form_rendering(client, db):
 
 
 @pytest.mark.django_db
-def test_empty_states_render(mfa_session, workspace):
-    organization, _, _, _ = workspace
-    project = create_project(organization)
-    contacts = mfa_session.get(reverse("project_contacts", args=[project.id]))
-    jobs = mfa_session.get(reverse("project_jobs", args=[project.id]))
-    assert "No contacts yet" in contacts.content.decode()
-    assert "No jobs have been started" in jobs.content.decode()
-
-
-@pytest.mark.django_db
 def test_instance_settings_admin_only_and_masks_secrets(mfa_session, client, workspace, settings):
     settings.GOOGLE_CLIENT_ID = "1234567890-abcdef.apps.googleusercontent.com"
     settings.GOOGLE_CLIENT_SECRET = "super-secret-value"  # noqa: S105
     organization, _, _, _ = workspace
-    response = mfa_session.get(reverse("instance_settings"))
-    content = response.content.decode()
+    response = mfa_session.get("/api/instance-settings")
     assert response.status_code == 200
-    assert "super-secret-value" not in content
-    assert "1234567890-abcdef.apps.googleusercontent.com" not in content
-    assert "1234…om" in content
-    assert "GOOGLE_REDIRECT_URI" in content and "SOURCE_NETWORK_ENABLED" in content
+    rows = {row["key"]: row["value"] for group in response.json() for row in group["rows"]}
+    values = set(rows.values())
+    assert "super-secret-value" not in values
+    assert "1234567890-abcdef.apps.googleusercontent.com" not in values
+    assert rows["GOOGLE_CLIENT_ID"] == "1234…om"
+    assert "GOOGLE_REDIRECT_URI" in rows
+    assert "SOURCE_NETWORK_ENABLED" in rows
 
     _login_role(client, organization, Membership.Role.ANALYST, "settings-analyst")
-    denied = client.get(reverse("instance_settings"))
+    denied = client.get("/api/instance-settings")
     assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "forbidden"
 
 
 @pytest.mark.django_db
@@ -160,32 +163,42 @@ def test_instance_setting_edit_encrypts_and_overrides(mfa_session, client, works
     from foundry.runtime_settings import runtime_setting
 
     organization, _, _, _ = workspace
-    response = mfa_session.post(
-        reverse("instance_setting_update"),
-        {"key": "GOOGLE_CLIENT_SECRET", "value": "ui-entered-secret"},
+    response = mfa_session.put(
+        "/api/instance-settings/GOOGLE_CLIENT_SECRET",
+        data={"value": "ui-entered-secret"},
+        content_type="application/json",
     )
-    assert response.status_code == 302
+    assert response.status_code == 200
+    assert response.json() == {"key": "GOOGLE_CLIENT_SECRET", "state": "updated"}
     row = InstanceSetting.objects.get(key="GOOGLE_CLIENT_SECRET")
     assert "ui-entered-secret" not in row.encrypted_value
     assert runtime_setting("GOOGLE_CLIENT_SECRET") == "ui-entered-secret"
 
-    page = mfa_session.get(reverse("instance_settings")).content.decode()
-    assert "ui-entered-secret" not in page
+    listing = mfa_session.get("/api/instance-settings").content.decode()
+    assert "ui-entered-secret" not in listing
 
-    gate = mfa_session.post(
-        reverse("instance_setting_update"),
-        {"key": "SOURCE_NETWORK_ENABLED", "value": "true"},
+    # Policy gates stay environment-only: not editable from the interface.
+    gate = mfa_session.put(
+        "/api/instance-settings/SOURCE_NETWORK_ENABLED",
+        data={"value": "true"},
+        content_type="application/json",
     )
-    assert gate.status_code == 302
+    assert gate.status_code == 404
     assert not InstanceSetting.objects.filter(key="SOURCE_NETWORK_ENABLED").exists()
 
-    mfa_session.post(
-        reverse("instance_setting_update"), {"key": "GOOGLE_CLIENT_SECRET", "value": ""}
+    cleared = mfa_session.put(
+        "/api/instance-settings/GOOGLE_CLIENT_SECRET",
+        data={"value": ""},
+        content_type="application/json",
     )
+    assert cleared.status_code == 200
+    assert cleared.json()["state"] == "cleared"
     assert not InstanceSetting.objects.filter(key="GOOGLE_CLIENT_SECRET").exists()
 
     _login_role(client, organization, Membership.Role.ANALYST, "settings-editor")
-    denied = client.post(
-        reverse("instance_setting_update"), {"key": "GOOGLE_CLIENT_ID", "value": "x"}
+    denied = client.put(
+        "/api/instance-settings/GOOGLE_CLIENT_ID",
+        data={"value": "x"},
+        content_type="application/json",
     )
     assert denied.status_code == 403

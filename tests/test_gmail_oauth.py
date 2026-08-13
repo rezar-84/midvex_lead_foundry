@@ -54,9 +54,9 @@ def test_gmail_callback_scheme_rewriting(mfa_session, workspace, settings, monke
         url = reverse("gmail_callback") + "?state=test-state-123&code=test-code"
         response = mfa_session.get(url)
 
-        # Assert redirection back to sources page and success message
+        # Assert redirection back to the SPA sources page with the success flag
         assert response.status_code == 302
-        assert response.url == reverse("sources")
+        assert response.url == "/sources?connected=1"
 
         # Assert flow.fetch_token was called with the rewritten HTTPS URL
         mock_flow.fetch_token.assert_called_once()

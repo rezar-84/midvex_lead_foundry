@@ -9,12 +9,19 @@ from django.db import transaction
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
+from ninja.errors import HttpError
 from pydantic import Field
 
 from ...access import CAPABILITIES
 from ...audit import record_event
-from ...models import Company, Conversation, OpportunityCandidate, ReviewDecision
-from ...runtime_settings import runtime_setting
+from ...models import (
+    Company,
+    Conversation,
+    MailboxConnection,
+    OpportunityCandidate,
+    ReviewDecision,
+)
+from ...runtime_settings import EDITABLE_KEYS, runtime_setting, set_runtime_setting
 from ..pagination import paginate_queryset
 from ..security import require_membership
 
@@ -292,3 +299,175 @@ def knowledge(request: HttpRequest, page: int = 1) -> CompanyPageOut:
         ],
         **meta,
     )
+
+
+# --- org sources & instance settings ----------------------------------------
+
+
+class MailboxOut(Schema):
+    id: str
+    provider: str
+    email_address: str
+    status: str
+    scopes: list[str]
+    policy_confirmed_at: datetime | None
+    created_at: datetime
+
+
+class SettingRowOut(Schema):
+    label: str
+    value: str
+    key: str
+    editable: bool
+    secret: bool
+
+
+class SettingGroupOut(Schema):
+    title: str
+    rows: list[SettingRowOut]
+
+
+class SettingUpdateIn(Schema):
+    value: str = ""
+
+
+def _mask(value: str) -> str:
+    if not value:
+        return ""
+    return f"{value[:4]}…{value[-2:]}" if len(value) > 8 else "set"
+
+
+@router.get("/sources", response=list[MailboxOut], url_name="sources")
+def sources(request: HttpRequest) -> list[MailboxOut]:
+    membership = require_membership(request, "manage_sources")
+    mailboxes = MailboxConnection.objects.filter(organization=membership.organization).order_by(
+        "email_address"
+    )
+    return [
+        MailboxOut(
+            id=str(mailbox.id),
+            provider=mailbox.provider,
+            email_address=mailbox.email_address,
+            status=mailbox.status,
+            scopes=[str(scope) for scope in mailbox.scopes],
+            policy_confirmed_at=mailbox.policy_confirmed_at,
+            created_at=mailbox.created_at,
+        )
+        for mailbox in mailboxes
+    ]
+
+
+@router.get("/instance-settings", response=list[SettingGroupOut], url_name="instance_settings")
+def instance_settings(request: HttpRequest) -> list[SettingGroupOut]:
+    require_membership(request, "manage_users")
+    raw_groups: list[tuple[str, list[tuple[str, str, str]]]] = [
+        (
+            "Branding & locale",
+            [
+                ("Brand name", runtime_setting("FOUNDRY_BRAND_NAME"), "FOUNDRY_BRAND_NAME"),
+                (
+                    "Enrichment user-agent",
+                    runtime_setting("FOUNDRY_USER_AGENT"),
+                    "FOUNDRY_USER_AGENT",
+                ),
+                ("Language code", settings.LANGUAGE_CODE, "DJANGO_LANGUAGE_CODE"),
+                (
+                    "Languages",
+                    ", ".join(code for code, _ in settings.LANGUAGES),
+                    "DJANGO_LANGUAGES",
+                ),
+                ("Time zone", settings.TIME_ZONE, "DJANGO_TIME_ZONE"),
+            ],
+        ),
+        (
+            "Google OAuth (Gmail read-only)",
+            [
+                ("Client ID", _mask(runtime_setting("GOOGLE_CLIENT_ID")), "GOOGLE_CLIENT_ID"),
+                (
+                    "Client secret",
+                    "set" if runtime_setting("GOOGLE_CLIENT_SECRET") else "",
+                    "GOOGLE_CLIENT_SECRET",
+                ),
+                ("Redirect URI", runtime_setting("GOOGLE_REDIRECT_URI"), "GOOGLE_REDIRECT_URI"),
+            ],
+        ),
+        (
+            "Policy gates (human approval required to enable)",
+            [
+                (
+                    "Real Gmail data",
+                    "enabled" if settings.GMAIL_REAL_DATA_ENABLED else "disabled",
+                    "GMAIL_REAL_DATA_ENABLED",
+                ),
+                (
+                    "External source sync",
+                    "enabled" if settings.SOURCE_NETWORK_ENABLED else "disabled",
+                    "SOURCE_NETWORK_ENABLED",
+                ),
+                (
+                    "Enrichment network",
+                    "enabled" if settings.ENRICHMENT_NETWORK_ENABLED else "disabled",
+                    "ENRICHMENT_NETWORK_ENABLED",
+                ),
+                (
+                    "Enrichment egress proxy",
+                    "set" if runtime_setting("ENRICHMENT_EGRESS_PROXY") else "",
+                    "ENRICHMENT_EGRESS_PROXY",
+                ),
+            ],
+        ),
+        (
+            "Storage & limits",
+            [
+                ("Evidence backend", settings.RAW_STORAGE_BACKEND, "RAW_STORAGE_BACKEND"),
+                ("S3 bucket", settings.S3_BUCKET or "", "S3_BUCKET"),
+                ("S3 endpoint", settings.S3_ENDPOINT_URL or "", "S3_ENDPOINT_URL"),
+                (
+                    "Max message size",
+                    f"{settings.MAX_MESSAGE_BYTES // (1024 * 1024)} MB",
+                    "MAX_MESSAGE_BYTES",
+                ),
+                (
+                    "Token encryption key",
+                    "set" if settings.TOKEN_ENCRYPTION_KEY else "derived (dev only)",
+                    "TOKEN_ENCRYPTION_KEY",
+                ),
+            ],
+        ),
+    ]
+    return [
+        SettingGroupOut(
+            title=title,
+            rows=[
+                SettingRowOut(
+                    label=label,
+                    value=value,
+                    key=key,
+                    editable=key in EDITABLE_KEYS,
+                    secret=EDITABLE_KEYS[key].secret if key in EDITABLE_KEYS else False,
+                )
+                for label, value, key in rows
+            ],
+        )
+        for title, rows in raw_groups
+    ]
+
+
+@router.put("/instance-settings/{key}", response=dict[str, str], url_name="instance_setting_update")
+def instance_setting_update(
+    request: HttpRequest, key: str, payload: SettingUpdateIn
+) -> dict[str, str]:
+    membership = require_membership(request, "manage_users")
+    if key not in EDITABLE_KEYS:
+        raise HttpError(404, "That setting is not editable from the interface.")
+    value = payload.value.strip()
+    set_runtime_setting(key, value)
+    record_event(
+        request,
+        membership.organization,
+        "instance_setting.updated",
+        object_type="instance_setting",
+        object_id=key,
+        metadata={"cleared": not value},
+    )
+    return {"key": key, "state": "cleared" if not value else "updated"}
