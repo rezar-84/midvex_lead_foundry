@@ -4,7 +4,6 @@ import uuid
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 
 from foundry import operations
 from foundry.connectors import (
@@ -13,7 +12,6 @@ from foundry.connectors import (
 )
 from foundry.models import (
     BatchJob,
-    BatchJobItem,
     LeadProject,
     LeadSource,
     Membership,
@@ -44,24 +42,32 @@ def _make_job(
     )
 
 
-def _synced_project(mfa_session, organization, settings, tmp_path) -> LeadProject:
+def _synced_project(organization, settings, tmp_path) -> LeadProject:
     settings.RAW_STORAGE_BACKEND = "filesystem"
     settings.RAW_STORAGE_ROOT = tmp_path
     organization.internal_addresses = [SYNTHETIC_INTERNAL_ADDRESS]
     organization.internal_domains = [SYNTHETIC_INTERNAL_DOMAIN]
     organization.save()
     project = create_project(organization)
-    mfa_session.post(
-        reverse("project_source_create", args=[project.id]),
-        {
-            "source_type": "synthetic",
-            "name": "Safe demo",
-            "email_address": SYNTHETIC_INTERNAL_ADDRESS,
-            "rate_limit_per_minute": 60,
-            "max_messages_per_run": 50,
-            "confirm_authority": "on",
-        },
+    source = LeadSource.objects.create(
+        organization=organization,
+        project=project,
+        source_type=LeadSource.SourceType.SYNTHETIC,
+        name="Safe demo",
+        email_address=SYNTHETIC_INTERNAL_ADDRESS,
+        status=LeadSource.Status.READY,
+        rate_limit_per_minute=60,
+        max_messages_per_run=50,
     )
+    sync = BatchJob.objects.create(
+        organization=organization,
+        project=project,
+        source=source,
+        kind=BatchJob.Kind.SYNC,
+        target_key=str(source.id),
+        created_by=get_user_model().objects.first(),
+    )
+    execute_sync_job(str(sync.id))
     return project
 
 
@@ -70,7 +76,7 @@ def test_analysis_failure_persists_status_and_partial_progress(
     mfa_session, workspace, settings, tmp_path, monkeypatch
 ):
     organization, _, _, _ = workspace
-    project = _synced_project(mfa_session, organization, settings, tmp_path)
+    project = _synced_project(organization, settings, tmp_path)
     job = _make_job(project)
 
     calls = {"count": 0}
@@ -106,9 +112,12 @@ def test_cancel_queued_job_and_worker_skips_it(mfa_session, workspace):
     )
     job = _make_job(project, kind=BatchJob.Kind.SYNC, source=source)
 
-    response = mfa_session.post(reverse("project_job_cancel", args=[project.id, job.id]))
+    response = mfa_session.post(f"/api/projects/{project.id}/jobs/{job.id}/cancel")
     job.refresh_from_db()
-    assert response.status_code == 302
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == BatchJob.Status.CANCELLED
+    assert payload["terminal"] is True
     assert job.status == BatchJob.Status.CANCELLED
     assert job.finished_at is not None
 
@@ -124,12 +133,13 @@ def test_cancel_refused_for_terminal_job(mfa_session, workspace):
     project = create_project(organization)
     job = _make_job(project, status=BatchJob.Status.SUCCEEDED)
 
-    response = mfa_session.post(
-        reverse("project_job_cancel", args=[project.id, job.id]), follow=True
-    )
+    response = mfa_session.post(f"/api/projects/{project.id}/jobs/{job.id}/cancel")
     job.refresh_from_db()
+    assert response.status_code == 409
+    error = response.json()["error"]
+    assert error["code"] == "conflict"
+    assert "Only queued or running jobs can be cancelled." in error["message"]
     assert job.status == BatchJob.Status.SUCCEEDED
-    assert "Only queued or running jobs can be cancelled." in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -154,9 +164,10 @@ def test_cancel_denied_without_run_batches_capability(client, workspace):
     session["mfa_verified"] = True
     session.save()
 
-    response = client.post(reverse("project_job_cancel", args=[project.id, job.id]))
+    response = client.post(f"/api/projects/{project.id}/jobs/{job.id}/cancel")
     job.refresh_from_db()
     assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
     assert job.status == BatchJob.Status.QUEUED
 
 
@@ -175,13 +186,12 @@ def test_job_endpoints_hidden_from_foreign_organization(mfa_session, workspace):
     foreign_project = create_project(foreign_org)
     foreign_job = _make_job(foreign_project)
 
-    status_response = mfa_session.get(
-        reverse("project_job_status", args=[foreign_project.id, foreign_job.id])
-    )
+    status_response = mfa_session.get(f"/api/projects/{foreign_project.id}/jobs/{foreign_job.id}")
     cancel_response = mfa_session.post(
-        reverse("project_job_cancel", args=[foreign_project.id, foreign_job.id])
+        f"/api/projects/{foreign_project.id}/jobs/{foreign_job.id}/cancel"
     )
     assert status_response.status_code == 404
+    assert status_response.json()["error"]["code"] == "not_found"
     assert cancel_response.status_code == 404
     foreign_job.refresh_from_db()
     assert foreign_job.status == BatchJob.Status.QUEUED
@@ -196,46 +206,79 @@ def test_job_status_json_shape(mfa_session, workspace):
     job.progress_processed = 1
     job.save(update_fields=["progress_total", "progress_processed"])
 
-    response = mfa_session.get(reverse("project_job_status", args=[project.id, job.id]))
+    response = mfa_session.get(f"/api/projects/{project.id}/jobs/{job.id}")
     data = response.json()
     assert response.status_code == 200
-    assert data == {
-        "status": "running",
-        "status_display": "Running",
-        "processed": 1,
-        "total": 4,
-        "percent": 25,
-        "error_count": 0,
-        "requests_used": 0,
-        "request_budget": 0,
-        "error_code": "",
-        "terminal": False,
+    assert set(data) == {
+        "id",
+        "kind",
+        "status",
+        "status_display",
+        "processed",
+        "total",
+        "percent",
+        "error_count",
+        "requests_used",
+        "request_budget",
+        "error_code",
+        "terminal",
+        "target_key",
+        "source_id",
+        "created_at",
+        "finished_at",
     }
+    assert data["id"] == str(job.id)
+    assert data["kind"] == job.kind
+    assert data["status"] == "running"
+    assert data["status_display"] == "Running"
+    assert data["processed"] == 1
+    assert data["total"] == 4
+    assert data["percent"] == 25
+    assert data["error_count"] == 0
+    assert data["requests_used"] == 0
+    assert data["request_budget"] == 0
+    assert data["error_code"] == ""
+    assert data["terminal"] is False
+    assert data["target_key"] == job.target_key
+    assert data["source_id"] is None
+    assert data["finished_at"] is None
 
 
 @pytest.mark.django_db
-def test_job_detail_items_paginate_and_clamp(mfa_session, workspace):
+def test_job_detail_progress_and_jobs_paginate_and_clamp(mfa_session, workspace):
     organization, _, _, _ = workspace
     project = create_project(organization)
-    job = _make_job(project, status=BatchJob.Status.SUCCEEDED)
-    BatchJobItem.objects.bulk_create(
+    user = get_user_model().objects.first()
+    jobs = BatchJob.objects.bulk_create(
         [
-            BatchJobItem(
+            BatchJob(
                 organization=organization,
-                job=job,
-                entity_type="contact",
-                entity_id=uuid.uuid4(),
+                project=project,
+                kind=BatchJob.Kind.ANALYZE,
+                status=BatchJob.Status.SUCCEEDED,
+                target_key=uuid.uuid4().hex,
+                progress_total=55,
+                progress_processed=55,
+                created_by=user,
             )
-            for _ in range(55)
+            for _ in range(26)
         ]
     )
 
-    first = mfa_session.get(reverse("project_job_detail", args=[project.id, job.id]))
-    second = mfa_session.get(reverse("project_job_detail", args=[project.id, job.id]), {"page": 2})
-    clamped = mfa_session.get(
-        reverse("project_job_detail", args=[project.id, job.id]), {"page": 999}
-    )
-    assert len(first.context["items"]) == 50
-    assert len(second.context["items"]) == 5
-    assert clamped.context["page_obj"].number == 2
-    assert "Entity results (55)" in first.content.decode()
+    detail = mfa_session.get(f"/api/projects/{project.id}/jobs/{jobs[0].id}")
+    assert detail.status_code == 200
+    assert detail.json()["processed"] == 55
+    assert detail.json()["total"] == 55
+    assert detail.json()["percent"] == 100
+
+    first = mfa_session.get(f"/api/projects/{project.id}/jobs")
+    second = mfa_session.get(f"/api/projects/{project.id}/jobs?page=2")
+    clamped = mfa_session.get(f"/api/projects/{project.id}/jobs?page=999")
+    assert set(first.json()) == {"items", "count", "page", "pages", "per_page"}
+    assert first.json()["count"] == 26
+    assert first.json()["pages"] == 2
+    assert first.json()["per_page"] == 25
+    assert len(first.json()["items"]) == 25
+    assert len(second.json()["items"]) == 1
+    # Out-of-range pages clamp to the last page instead of erroring.
+    assert clamped.json()["page"] == 2

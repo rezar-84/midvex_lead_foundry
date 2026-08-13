@@ -95,3 +95,172 @@ export interface Company {
   website: string
   contacts: Contact[]
 }
+
+export type ProjectStatus = "draft" | "active" | "paused" | "archived"
+
+export interface Project {
+  id: string
+  name: string
+  slug: string
+  purpose: string
+  status: ProjectStatus
+  languages: string[]
+  retention_days: number
+  monthly_request_budget: number
+  allowed_domains: string[]
+  network_execution_enabled: boolean
+  updated_at: string
+}
+
+export interface Source {
+  id: string
+  source_type: "gmail" | "imap" | "pop3" | "synthetic"
+  name: string
+  email_address: string
+  host: string
+  port: number | null
+  username: string
+  use_tls: boolean
+  rate_limit_per_minute: number
+  max_messages_per_run: number
+  status: string
+  last_synced_at: string | null
+  last_error_code: string
+  has_password: boolean
+  mailbox_connected: boolean
+}
+
+export interface Job {
+  id: string
+  kind: "sync" | "analyze" | "enrich"
+  status: string
+  status_display: string
+  processed: number
+  total: number
+  percent: number
+  error_count: number
+  requests_used: number
+  request_budget: number
+  error_code: string
+  terminal: boolean
+  target_key: string
+  source_id: string | null
+  created_at: string
+  finished_at: string | null
+}
+
+export interface ProjectDetail extends Project {
+  entity_counts: Record<"contact" | "company" | "product" | "opportunity", number>
+  sources: Source[]
+  jobs: Job[]
+}
+
+export interface TagT {
+  id: string
+  name: string
+  category: string
+  color: string
+}
+
+export interface Metric {
+  contact_count: number
+  inbound_count: number
+  outbound_count: number
+  first_contact_at: string | null
+  last_contact_at: string | null
+  quality_score: number | null
+  sentiment: string
+  latest_outcome: string
+  main_topics: string[]
+}
+
+export interface ProductRef {
+  id: string
+  canonical_name: string
+  relationship_type: string
+}
+
+export interface ContactRow {
+  id: string
+  display_name: string
+  primary_email: string
+  phone: string
+  company_name: string | null
+  metric: Metric | null
+  products: ProductRef[]
+  tags: TagT[]
+}
+
+export interface EnrichmentResult {
+  id: string
+  source_url: string
+  status: string
+  candidate_data: Record<string, unknown>
+  created_at: string
+}
+
+export interface ContactDetailT extends ContactRow {
+  enrichment_results: EnrichmentResult[]
+}
+
+export interface Product {
+  id: string
+  canonical_name: string
+  aliases: string[]
+  product_group: string
+  description: string
+  status: string
+}
+
+export interface Mailbox {
+  id: string
+  provider: string
+  email_address: string
+  status: string
+  scopes: string[]
+  policy_confirmed_at: string | null
+  created_at: string
+}
+
+export interface SettingRow {
+  label: string
+  value: string
+  key: string
+  editable: boolean
+  secret: boolean
+}
+
+export interface SettingGroup {
+  title: string
+  rows: SettingRow[]
+}
+
+export interface SourceCreateResult {
+  source: Source
+  job_id: string | null
+}
+
+export interface ProjectPayload {
+  name: string
+  purpose: string
+  status: ProjectStatus
+  languages: string[]
+  retention_days: number
+  monthly_request_budget: number
+  allowed_domains_text: string
+  network_execution_enabled: boolean
+}
+
+export interface SourcePayload {
+  source_type: string
+  name: string
+  email_address: string
+  host: string
+  port: number | null
+  username: string
+  password: string
+  use_tls: boolean
+  rate_limit_per_minute: number
+  max_messages_per_run: number
+  confirm_authority: boolean
+}

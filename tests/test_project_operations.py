@@ -4,7 +4,6 @@ import uuid
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 
 from foundry.connectors import (
     SYNTHETIC_INTERNAL_ADDRESS,
@@ -18,6 +17,7 @@ from foundry.models import (
     BatchJobItem,
     Company,
     Contact,
+    ContactMetric,
     EnrichmentResult,
     EntityTag,
     LeadProject,
@@ -27,7 +27,6 @@ from foundry.models import (
     Organization,
     ProductConcept,
     ProjectEntity,
-    Tag,
 )
 from foundry.operations import execute_enrichment_job
 
@@ -51,8 +50,8 @@ def create_project(organization: Organization, *, network: bool = False) -> Lead
 def test_admin_creates_organization_scoped_project(mfa_session, workspace):
     organization, _, _, _ = workspace
     response = mfa_session.post(
-        reverse("project_create"),
-        {
+        "/api/projects",
+        data={
             "name": "Nine year archive",
             "purpose": "Find reviewable historical opportunities.",
             "status": "draft",
@@ -61,10 +60,14 @@ def test_admin_creates_organization_scoped_project(mfa_session, workspace):
             "monthly_request_budget": 250,
             "allowed_domains_text": "example.test\ncompany.test",
         },
+        content_type="application/json",
     )
 
+    assert response.status_code == 200
     project = LeadProject.objects.get(name="Nine year archive")
-    assert response.status_code == 302
+    payload = response.json()
+    assert payload["id"] == str(project.id)
+    assert payload["slug"] == project.slug
     assert project.organization == organization
     assert project.allowed_domains == ["company.test", "example.test"]
     assert project.network_execution_enabled is False
@@ -85,63 +88,63 @@ def test_analyst_cannot_create_project(client, workspace):
     session["mfa_verified"] = True
     session.save()
 
-    response = client.get(reverse("project_create"))
+    response = client.post(
+        "/api/projects",
+        data={"name": "Blocked project"},
+        content_type="application/json",
+    )
 
     assert response.status_code == 403
+    assert response.json()["error"]["code"] == "forbidden"
+    assert not LeadProject.objects.filter(name="Blocked project").exists()
 
 
 @pytest.mark.django_db
 def test_imap_source_requires_tls_and_encrypts_password(mfa_session, workspace):
     organization, _, _, _ = workspace
     project = create_project(organization)
-    url = reverse("project_source_create", args=[project.id])
-    insecure = mfa_session.post(
-        url,
-        {
-            "source_type": "imap",
-            "name": "Company archive",
-            "email_address": "archive@example.test",
-            "host": "mail.example.test",
-            "port": 993,
-            "username": "archive@example.test",
-            "password": "application-password",  # noqa: S106
-            "rate_limit_per_minute": 30,
-            "max_messages_per_run": 100,
-            "confirm_authority": "on",
-        },
+    url = f"/api/projects/{project.id}/sources"
+    payload = {
+        "source_type": "imap",
+        "name": "Company archive",
+        "email_address": "archive@example.test",
+        "host": "mail.example.test",
+        "port": 993,
+        "username": "archive@example.test",
+        "password": "application-password",
+        "rate_limit_per_minute": 30,
+        "max_messages_per_run": 100,
+        "confirm_authority": True,
+    }
+    insecure = mfa_session.post(url, data=payload, content_type="application/json")
+    assert insecure.status_code == 400
+    error = insecure.json()["error"]
+    assert error["code"] == "validation_error"
+    assert any(
+        "TLS is mandatory" in message
+        for messages in error["fields"].values()
+        for message in messages
     )
-    assert insecure.status_code == 200
-    assert "TLS is mandatory" in insecure.content.decode()
     assert LeadSource.objects.count() == 0
 
     secure = mfa_session.post(
-        url,
-        {
-            "source_type": "imap",
-            "name": "Company archive",
-            "email_address": "archive@example.test",
-            "host": "mail.example.test",
-            "port": 993,
-            "username": "archive@example.test",
-            "password": "application-password",  # noqa: S106
-            "use_tls": "on",
-            "rate_limit_per_minute": 30,
-            "max_messages_per_run": 100,
-            "confirm_authority": "on",
-        },
+        url, data={**payload, "use_tls": True}, content_type="application/json"
     )
+    assert secure.status_code == 200
     source = LeadSource.objects.get()
-    detail = mfa_session.get(reverse("project_source_detail", args=[project.id, source.id]))
+    assert secure.json()["source"]["id"] == str(source.id)
 
-    assert secure.status_code == 302
+    detail = mfa_session.get(f"/api/projects/{project.id}/sources/{source.id}")
+    assert detail.status_code == 200
     assert "application-password" not in source.encrypted_password
     assert decrypt(source.encrypted_password) == "application-password"
     assert "application-password" not in detail.content.decode()
+    assert detail.json()["has_password"] is True
 
 
 @pytest.mark.django_db
 @pytest.mark.e2e
-def test_synthetic_project_sync_analysis_and_entity_ui(mfa_session, workspace, settings, tmp_path):
+def test_synthetic_project_sync_analysis_and_entity_api(mfa_session, workspace, settings, tmp_path):
     organization, _, _, _ = workspace
     organization.internal_addresses = [SYNTHETIC_INTERNAL_ADDRESS]
     organization.internal_domains = [SYNTHETIC_INTERNAL_DOMAIN]
@@ -150,46 +153,60 @@ def test_synthetic_project_sync_analysis_and_entity_ui(mfa_session, workspace, s
     settings.RAW_STORAGE_ROOT = tmp_path
     project = create_project(organization)
     sync_response = mfa_session.post(
-        reverse("project_source_create", args=[project.id]),
-        {
+        f"/api/projects/{project.id}/sources",
+        data={
             "source_type": "synthetic",
             "name": "Safe demo",
             "email_address": SYNTHETIC_INTERNAL_ADDRESS,
             "rate_limit_per_minute": 60,
             "max_messages_per_run": 50,
-            "confirm_authority": "on",
+            "confirm_authority": True,
         },
+        content_type="application/json",
     )
-    analysis_response = mfa_session.post(reverse("project_analysis_start", args=[project.id]))
-    contacts_response = mfa_session.get(reverse("project_contacts", args=[project.id]))
-    products_response = mfa_session.get(reverse("project_products", args=[project.id]))
-    contact = Contact.objects.get(primary_email="deniz@example.test")
-    contact_detail_response = mfa_session.get(
-        reverse("project_contact_detail", args=[project.id, contact.id])
-    )
-    tag_response = mfa_session.post(
-        reverse("project_tags", args=[project.id]),
-        {"name": "High priority", "category": "priority", "color": "#466653"},
-    )
-    tag = Tag.objects.get(project=project, name="High priority")
-    assign_response = mfa_session.post(
-        reverse("project_contact_tag_assign", args=[project.id]),
-        {"contact_ids": [str(contact.id)], "tag_id": str(tag.id)},
+    assert sync_response.status_code == 200
+    assert sync_response.json()["job_id"]
+
+    analysis_response = mfa_session.post(f"/api/projects/{project.id}/analysis/start")
+    assert analysis_response.status_code == 200
+    assert BatchJob.objects.filter(project=project, status=BatchJob.Status.SUCCEEDED).count() == 2
+
+    contacts_response = mfa_session.get(f"/api/projects/{project.id}/contacts")
+    assert contacts_response.status_code == 200
+    rows = contacts_response.json()["items"]
+    row = next(item for item in rows if item["display_name"] == "Deniz Buyer")
+    assert "buyer" in {product["relationship_type"] for product in row["products"]}
+    assert ContactMetric.objects.filter(project=project, scoring_version="heuristic-v1").exists()
+
+    assert ProductConcept.objects.filter(canonical_name__icontains="scanner").exists()
+    products_response = mfa_session.get(f"/api/projects/{project.id}/products")
+    assert any(
+        "scanner" in product["canonical_name"].lower()
+        for product in products_response.json()["items"]
     )
 
-    assert sync_response.status_code == 302
-    assert analysis_response.status_code == 302
-    assert BatchJob.objects.filter(project=project, status=BatchJob.Status.SUCCEEDED).count() == 2
-    assert "Deniz Buyer" in contacts_response.content.decode()
-    assert "buyer" in contacts_response.content.decode()
-    assert "heuristic-v1" in contacts_response.content.decode()
-    assert ProductConcept.objects.filter(canonical_name__icontains="scanner").exists()
-    assert "Scanner" in products_response.content.decode()
+    contact = Contact.objects.get(primary_email="deniz@example.test")
+    contact_detail_response = mfa_session.get(f"/api/projects/{project.id}/contacts/{contact.id}")
     assert contact_detail_response.status_code == 200
-    assert "Relationship history" in contact_detail_response.content.decode()
-    assert tag_response.status_code == 302
-    assert assign_response.status_code == 302
-    assert EntityTag.objects.filter(tag=tag, entity_id=contact.id).exists()
+    assert "enrichment_results" in contact_detail_response.json()
+
+    tag_response = mfa_session.post(
+        f"/api/projects/{project.id}/tags",
+        data={"name": "High priority", "category": "priority", "color": "#466653"},
+        content_type="application/json",
+    )
+    assert tag_response.status_code == 200
+    tag_payload = tag_response.json()
+    assert tag_payload["name"] == "High priority"
+
+    assign_response = mfa_session.post(
+        f"/api/projects/{project.id}/contacts/tags/assign",
+        data={"contact_ids": [str(contact.id)], "tag_id": tag_payload["id"]},
+        content_type="application/json",
+    )
+    assert assign_response.status_code == 200
+    assert assign_response.json() == {"assigned": 1}
+    assert EntityTag.objects.filter(tag_id=tag_payload["id"], entity_id=contact.id).exists()
 
 
 def test_private_enrichment_target_is_rejected():
@@ -255,15 +272,19 @@ def test_enrichment_stores_provenance_candidates_with_mocked_fetcher(workspace, 
     job.refresh_from_db()
     result = EnrichmentResult.objects.get(job_item__job=job)
     review = mfa_session.post(
-        reverse("project_enrichment_review", args=[project.id, result.id]),
-        {"decision": "accepted"},
+        f"/api/projects/{project.id}/enrichment/{result.id}/review",
+        data={"decision": "accepted"},
+        content_type="application/json",
     )
     result.refresh_from_db()
-    detail = mfa_session.get(reverse("project_contact_detail", args=[project.id, contact.id]))
+    detail = mfa_session.get(f"/api/projects/{project.id}/contacts/{contact.id}")
     assert job.status == BatchJob.Status.SUCCEEDED
-    assert review.status_code == 302
+    assert review.status_code == 200
+    assert review.json()["status"] == "accepted"
     assert result.status == "accepted"
-    assert "Example" in detail.content.decode()
+    enrichment_results = detail.json()["enrichment_results"]
+    assert enrichment_results[0]["candidate_data"]["title"] == "Example"
+    assert enrichment_results[0]["status"] == "accepted"
     assert result.content_sha256 == "a" * 64
     assert result.candidate_data["title"] == "Example"
 

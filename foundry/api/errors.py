@@ -12,6 +12,14 @@ def error_payload(code: str, message: str, fields: dict[str, Any] | None = None)
     return {"error": {"code": code, "message": message, "fields": fields}}
 
 
+class FormValidationError(Exception):
+    """Raised by API endpoints that delegate validation to a Django form."""
+
+    def __init__(self, fields: dict[str, Any]) -> None:
+        super().__init__("Invalid input.")
+        self.fields = fields
+
+
 def register_exception_handlers(api: NinjaAPI) -> None:
     @api.exception_handler(HttpError)
     def http_error(request: HttpRequest, exc: HttpError) -> HttpResponse:
@@ -29,6 +37,14 @@ def register_exception_handlers(api: NinjaAPI) -> None:
         return api.create_response(
             request,
             error_payload("validation_error", "Invalid input.", fields),
+            status=400,
+        )
+
+    @api.exception_handler(FormValidationError)
+    def form_validation_error(request: HttpRequest, exc: FormValidationError) -> HttpResponse:
+        return api.create_response(
+            request,
+            error_payload("validation_error", "Invalid input.", exc.fields),
             status=400,
         )
 
