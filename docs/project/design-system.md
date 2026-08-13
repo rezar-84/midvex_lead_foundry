@@ -1,12 +1,12 @@
 ---
 status: draft
 owner: brand-designer
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-13
 ---
 
 # Design system — Midvex Lead Foundry
 
-The authoritative tokens live in `foundry/static/foundry/app.css`. The interface is a restrained, dense internal workspace: neutral surfaces, one action accent, and separate success/warning/danger semantics. System fonts support Turkish and English without third-party font requests.
+The authoritative tokens live in `frontend/src/index.css` (Tailwind 4 theme feeding shadcn/ui components); the legacy `app.css` retains only what the surviving login/MFA templates need. The interface is a restrained, dense internal workspace on the warm paper-and-green palette, rendered in a soft-UI (neumorphic) style: surfaces share the page ground and read as raised or inset through the `.neu-raised` / `.neu-flat` / `.neu-inset` dual-shadow utilities, with matching light and dark palettes. Geist Variable is bundled locally (no third-party font requests) and covers Turkish and English.
 
 Components: skip link, navigation, status badge, metric card, filter form, data table, timeline, evidence block, pagination, confirmation form and inline error. Each implements focus, disabled, loading, error and long-content behavior.
 

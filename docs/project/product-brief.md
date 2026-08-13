@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-13
 ---
 
 # Product brief — Midvex Lead Foundry
@@ -28,11 +28,11 @@ Company relationship history is dispersed through a long-lived Gmail archive. Th
 
 ## Scope
 
-**Now:** MVX-016 adds project workspaces, Gmail/IMAP/POP3/synthetic source configuration, observable sync/analysis/enrichment jobs, contact history metrics, products, roles, tags and reviewable enrichment candidates. Only synthetic execution is currently authorised.
+**Now:** the product runs as a React SPA over a first-party JSON API (MVX-030..032): project workspaces, Gmail/IMAP/POP3/synthetic sources feeding one organisation-wide knowledge base, observable sync/analysis/enrichment jobs, contact history metrics, products, roles, tags and reviewable candidates. Auto-digest (MVX-034) chains analysis onto successful syncs per project; data quality (MVX-035) auto-merges exact duplicate contacts and queues fuzzy matches for human merge review. Only synthetic execution is currently authorised.
 
-**Later:** MVX-002–015 harden authentication, prove real provider ingestion/scanning, calibrate analysis, complete enrichment/CRM adapters, SaaS isolation and chat after explicit gates.
+**Later:** MVX-002–015 harden authentication, prove real provider ingestion/scanning, calibrate analysis, and — per the expanded vision — build the enrichment agents: an Odoo CRM connector first (MVX-012), then other CRM/knowledge-base adapters, social signals, market-news monitoring and website summarisation for lead qualification (MVX-013), automated CRM entry updates, SaaS isolation and chat, each after its explicit gate.
 
-**Not doing:** autonomous outreach; Gmail modification; automatic merges; unapproved web scraping; indefinite ungoverned retention; real-data training of general models; CRM-first architecture.
+**Not doing:** autonomous outreach; Gmail modification; automatic merges beyond exact-normalised-email contact dedup (fuzzy merges always human-reviewed); unapproved web scraping; indefinite ungoverned retention; real-data training of general models; CRM write-back before the connector milestone (MVX-012).
 
 ## Success metrics
 

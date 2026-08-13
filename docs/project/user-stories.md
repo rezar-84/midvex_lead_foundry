@@ -1,7 +1,7 @@
 ---
 status: draft
 owner: product-manager
-last-reviewed: 2026-08-11
+last-reviewed: 2026-08-13
 ---
 
 # User stories & acceptance criteria — Midvex Lead Foundry
@@ -51,3 +51,20 @@ last-reviewed: 2026-08-11
 - Export shows exact fields and records an immutable manifest before download.
 - Unapproved candidates, another organisation's records and quarantined messages are refused.
 - Repeating the same export request does not silently create a different payload.
+
+**MVX-034** — As an analyst, I want a project to digest new mail automatically, so extraction keeps up without me babysitting sync runs.
+
+- Enabling auto-digest in project settings makes every successful sync enqueue one analysis job; concurrent syncs never queue duplicates.
+- Auto-digest automates extraction only — candidates still wait for a human decision.
+- Paused or archived projects never auto-digest.
+
+**MVX-035** — As a reviewer, I want duplicate contacts found and merged safely, so metrics and history aren't split across copies of the same person.
+
+- Contacts sharing the same normalised email are merged automatically, keeping the oldest record and folding metrics; every merge is audit-logged.
+- Fuzzy matches (same name, same email local part) appear on the Data-quality page and merge only when I accept them; rejecting suppresses the pair.
+- Merges repoint tags, project links, relationships and derived facts; nothing orphans.
+
+**MVX-030..032** — As any member, I want every mailbox and source my organisation connects to feed one knowledge base, browsable in one interface.
+
+- Multiple Gmail/IMAP/POP3/synthetic sources across projects resolve into shared org-wide contacts, companies and products.
+- The SPA reflects my role: actions I lack the capability for are absent, and the API refuses them regardless.

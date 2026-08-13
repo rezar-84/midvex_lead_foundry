@@ -30,6 +30,61 @@ last-reviewed: 2026-08-11
 
 <!-- New entries go here, above the older ones. -->
 
+## MVX-030..035 — SPA rebuild, auto-digest, contact dedup (consolidated entry)
+
+**Date:** 2026-08-13 **Tier:** 1 (highest of the batch)
+**Status:** Done
+**Branch/commits:** `feat/MVX-030-spa-foundation` .. `feat/MVX-035-dedup`, each merged to `main` with `--no-ff`
+
+### What changed
+The owner repositioned the product (auto-digest mode, unified multi-mailbox knowledge
+base, data quality/dedup, enrichment agents later) and authorised a **fast-ship process
+relaxation** for this rebuild: no per-item role reviews/ADRs/worklogs; this consolidated
+entry and one docs commit (MVX-033) replace them. Safety rules were not relaxed: the
+three network/real-data policy gates stay env-controlled and default-off, and real-data
+authorisation still requires the independent second approver (ADR 0007 carve-out).
+
+- **MVX-030** — django-ninja API at `/api/` (session auth + CSRF, unified
+  `{"error": {code, message, fields}}` payloads, capability enforcement via
+  `require_membership`), MFA middleware returns 401 JSON for `/api/*`; `frontend/`
+  SPA scaffold (React 19, Vite, TypeScript, Tailwind 4, shadcn/ui, react-router,
+  TanStack Query) with the foundry palette; SPA catch-all view; multi-stage
+  Dockerfile (node → python + collectstatic). Deployed to mlf.midvex.com first to
+  prove the pipeline.
+- **MVX-031** — core loop as SPA pages: neumorphic dashboard, opportunities queue +
+  detail + review, conversations, knowledge, CSV export; five templates and their
+  views deleted.
+- **MVX-032** — full projects layer as API + SPA (~26 endpoints; forms reused for
+  validation); Gmail OAuth moved to `/integrations/gmail/…` (same url names);
+  `project_views.py`, remaining page templates and legacy CSS/JS deleted; tests
+  converted to the API. Found and fixed: bare `dict` payloads don't bind as ninja
+  request bodies (needs `Body[...]`).
+- **MVX-034** — `LeadProject.auto_digest_enabled` (migration 0006);
+  `_maybe_enqueue_digest` chains an ANALYZE job after successful syncs on active
+  opted-in projects; unique-active-job constraint absorbs races.
+- **MVX-035** — `foundry/dedup.py` (normalisation, transactional `merge_contacts`
+  with metric folding and link repointing, audit-logged), `MergeSuggestion` model,
+  `BatchJob.Kind.DEDUP` job (exact auto-merge + fuzzy suggestions), data migration
+  0008 lowercases legacy emails, Data-quality review page.
+
+### Verification
+`uv run pytest -q` → **69 passed**; `uv run ruff format --check` / `ruff check` clean;
+`uv run mypy foundry lead_foundry` (strict) clean; `npm run typecheck && npm run build`
+clean; `collectstatic` over the Vite bundle verified locally (422 post-processed);
+MVX-030 deploy smoke-checked live (health 200, SPA shell served, `/api/me` 401 JSON,
+bundle 200 via WhiteNoise). Every projects-layer endpoint exercised against seeded
+demo data via authenticated curl.
+
+### Not done
+- **Operational step at next deploy:** update `GOOGLE_REDIRECT_URI` in Dokploy env and
+  the Google Cloud console to `https://mlf.midvex.com/integrations/gmail/callback/`.
+- SPA accessibility pass (checks.a11y now covers only login/MFA templates) — follow-up
+  under MVX-036 or a new item.
+- Production error logging (Django swallows 500 tracebacks with DEBUG=false) — MVX-036.
+- Enrichment agents (Odoo connector first), CRM write-back — MVX-012/013, unchanged.
+- The 2026-08-12 production Gmail-callback 500 remains undiagnosed (blocked on the
+  traceback that MVX-036's logging will surface); real-data gates keep exposure nil.
+
 ## MVX-029 — Gmail OAuth callback HTTPS scheme rewriting
 
 **Date:** 2026-08-12 **Tier:** 2

@@ -214,6 +214,12 @@ them here; edit them in the template and re-install with `--upgrade`.)_
 - Synthetic data only until MVX-009 (real mailbox authority) and, for enrichment egress,
   MVX-011 are approved by a human. No real credentials, customer data, or personal
   archives in the repository or fixtures.
+- **Fast-ship mode (owner-authorised, 2026-08-13):** for the MVX-030..036 SPA rebuild
+  the accountable human waived per-item role reviews, ADRs and worklog entries in
+  favour of one consolidated worklog entry and docs commit (MVX-033). The waiver covers
+  process ceremony only — the policy gates, the real-data second-approver rule, and
+  every "Forbidden" item below stay in force. Normal process resumes after MVX-036
+  unless the owner extends the waiver in writing here.
 - Locale scope is English and Turkish (LTR); UI copy is English until the translation
   sweep (MVX-023) lands.
 - Approval policy: solo-operator model per ADR 0007 — Rezar86 is the accountable human
