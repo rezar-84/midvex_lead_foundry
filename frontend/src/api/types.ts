@@ -38,4 +38,60 @@ export interface Me {
 export interface Page<T> {
   items: T[]
   count: number
+  page: number
+  pages: number
+  per_page: number
+}
+
+export type OpportunityStatus = "pending" | "accepted" | "rejected" | "deferred"
+
+export interface Opportunity {
+  id: string
+  title: string
+  reason: string
+  rule_code: string
+  status: OpportunityStatus
+  score: number | null
+  confidence: number | null
+  last_communication_at: string | null
+  conversation_subject: string
+}
+
+export interface Evidence {
+  message_id: string
+  subject: string
+  snippet: string
+  sha256: string
+}
+
+export interface OpportunityDetail extends Opportunity {
+  evidence: Evidence
+}
+
+export interface Dashboard {
+  pending_count: number
+  accepted_count: number
+  conversation_count: number
+  recent: Opportunity[]
+}
+
+export interface Conversation {
+  id: string
+  subject: string
+  last_message_at: string | null
+}
+
+export interface Contact {
+  id: string
+  display_name: string
+  primary_email: string
+  phone: string
+}
+
+export interface Company {
+  id: string
+  name: string
+  domain: string
+  website: string
+  contacts: Contact[]
 }

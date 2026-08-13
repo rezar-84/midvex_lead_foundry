@@ -82,6 +82,9 @@
     --sidebar-accent-foreground: #124a34;
     --sidebar-border: #d8d8ca;
     --sidebar-ring: #1d6948;
+    /* Neumorphic dual shadows: light source top-left over the paper ground. */
+    --neu-light: #ffffff;
+    --neu-dark: #d2cfbf;
 }
 
 .dark {
@@ -116,6 +119,8 @@
     --sidebar-accent-foreground: #bfe3cf;
     --sidebar-border: #ffffff1a;
     --sidebar-ring: #4fa87d;
+    --neu-light: #1e2a1c;
+    --neu-dark: #070b06;
 }
 
 @layer base {
@@ -128,4 +133,33 @@
   html {
     @apply font-sans;
     }
+}
+
+@layer utilities {
+  /* Soft-UI (neumorphic) surfaces: same tone as the page ground, extruded or
+     pressed by a dual shadow instead of borders. */
+  .neu-raised {
+    background: var(--background);
+    border: 0;
+    border-radius: var(--radius-xl);
+    box-shadow:
+      8px 8px 18px var(--neu-dark),
+      -8px -8px 18px var(--neu-light);
+  }
+  .neu-inset {
+    background: var(--background);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 5px 5px 10px var(--neu-dark),
+      inset -5px -5px 10px var(--neu-light);
+  }
+  .neu-flat {
+    background: var(--background);
+    border: 0;
+    border-radius: var(--radius-lg);
+    box-shadow:
+      4px 4px 9px var(--neu-dark),
+      -4px -4px 9px var(--neu-light);
+  }
 }

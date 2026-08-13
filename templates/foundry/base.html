@@ -13,14 +13,15 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="{% url 'dashboard' %}">{{ brand_name }}</a>
+    {# Overview/Opportunities/Conversations/Knowledge are SPA routes served by the catch-all. #}
+    <a class="brand" href="/">{{ brand_name }}</a>
     {% if user.is_authenticated %}
       <nav aria-label="Primary">
-        <a href="{% url 'dashboard' %}">Overview</a>
+        <a href="/">Overview</a>
         <a href="{% url 'project_list' %}">Projects</a>
-        <a href="{% url 'opportunities' %}">Opportunities</a>
-        <a href="{% url 'conversations' %}">Conversations</a>
-        <a href="{% url 'knowledge' %}">Knowledge</a>
+        <a href="/opportunities">Opportunities</a>
+        <a href="/conversations">Conversations</a>
+        <a href="/knowledge">Knowledge</a>
         {% if "manage_sources" in capabilities %}<a href="{% url 'sources' %}">Sources</a>{% endif %}
         {% if "manage_users" in capabilities %}<a href="{% url 'instance_settings' %}">Settings</a>{% endif %}
       </nav>

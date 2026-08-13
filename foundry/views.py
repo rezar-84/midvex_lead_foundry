@@ -10,7 +10,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -20,18 +19,9 @@ from .access import require_capability
 from .audit import record_event
 from .crypto import decrypt, encrypt
 from .exports import accepted_candidates_csv
-from .forms import MFAForm, ReviewDecisionForm, SourceConnectForm
+from .forms import MFAForm, SourceConnectForm
 from .gmail import READONLY_SCOPE, oauth_flow
-from .models import (
-    Company,
-    Conversation,
-    LeadSource,
-    MailboxConnection,
-    MFADevice,
-    OpportunityCandidate,
-    ReviewDecision,
-)
-from .pagination import paginate
+from .models import LeadSource, MailboxConnection, MFADevice
 from .runtime_settings import EDITABLE_KEYS, runtime_setting, set_runtime_setting
 
 
@@ -56,7 +46,7 @@ def mfa_setup(request: HttpRequest) -> HttpResponse:
             device.last_counter = totp.timecode(timezone.now())
             device.save(update_fields=["confirmed_at", "last_counter", "updated_at"])
             request.session["mfa_verified"] = True
-            return redirect("dashboard")
+            return redirect("/")
         form.add_error("code", "Invalid authentication code.")
     uri = pyotp.TOTP(secret).provisioning_uri(
         name=request.user.get_username(), issuer_name=runtime_setting("FOUNDRY_BRAND_NAME")
@@ -81,131 +71,9 @@ def mfa_verify(request: HttpRequest) -> HttpResponse:
             device.last_counter = counter
             device.save(update_fields=["last_counter", "updated_at"])
             request.session["mfa_verified"] = True
-            return redirect("dashboard")
+            return redirect("/")
         form.add_error("code", "Invalid or previously used authentication code.")
     return render(request, "foundry/mfa_verify.html", {"form": form})
-
-
-@login_required
-@require_capability("view")
-def dashboard(request: HttpRequest) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    candidates = OpportunityCandidate.objects.filter(organization=membership.organization)
-    context = {
-        "pending_count": candidates.filter(status=OpportunityCandidate.Status.PENDING).count(),
-        "accepted_count": candidates.filter(status=OpportunityCandidate.Status.ACCEPTED).count(),
-        "conversation_count": Conversation.objects.filter(
-            organization=membership.organization
-        ).count(),
-        "recent": candidates.select_related("conversation").order_by("-created_at")[:8],
-    }
-    return render(request, "foundry/dashboard.html", context)
-
-
-@login_required
-@require_capability("view")
-def conversations(request: HttpRequest) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    items = Conversation.objects.filter(organization=membership.organization).order_by(
-        "-last_message_at"
-    )
-    page, querystring = paginate(request, items)
-    return render(
-        request,
-        "foundry/conversations.html",
-        {"conversations": page.object_list, "page_obj": page, "querystring": querystring},
-    )
-
-
-@login_required
-@require_capability("view")
-def knowledge(request: HttpRequest) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    companies = (
-        Company.objects.filter(organization=membership.organization)
-        .prefetch_related("contacts")
-        .order_by("name")
-    )
-    page, querystring = paginate(request, companies, per_page=24)
-    return render(
-        request,
-        "foundry/knowledge.html",
-        {"companies": page.object_list, "page_obj": page, "querystring": querystring},
-    )
-
-
-@login_required
-@require_capability("view")
-def opportunities(request: HttpRequest) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    status = request.GET.get("status", OpportunityCandidate.Status.PENDING)
-    valid = {choice for choice, _ in OpportunityCandidate.Status.choices}
-    items = OpportunityCandidate.objects.filter(organization=membership.organization)
-    if status in valid:
-        items = items.filter(status=status)
-    page, querystring = paginate(request, items.order_by("-score"), per_page=25)
-    return render(
-        request,
-        "foundry/opportunities.html",
-        {
-            "opportunities": page.object_list,
-            "status": status,
-            "page_obj": page,
-            "querystring": querystring,
-        },
-    )
-
-
-@login_required
-@require_capability("view")
-def opportunity_detail(request: HttpRequest, candidate_id: str) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    candidate = get_object_or_404(
-        OpportunityCandidate.objects.select_related("conversation", "evidence_message"),
-        organization=membership.organization,
-        id=candidate_id,
-    )
-    return render(
-        request,
-        "foundry/opportunity_detail.html",
-        {"candidate": candidate, "form": ReviewDecisionForm()},
-    )
-
-
-@login_required
-@require_POST
-@require_capability("review")
-@transaction.atomic
-def review_opportunity(request: HttpRequest, candidate_id: str) -> HttpResponse:
-    membership = request.membership  # type: ignore[attr-defined]
-    candidate = get_object_or_404(
-        OpportunityCandidate.objects.select_for_update(),
-        organization=membership.organization,
-        id=candidate_id,
-    )
-    form = ReviewDecisionForm(request.POST)
-    if form.is_valid():
-        candidate.status = form.cleaned_data["decision"]
-        candidate.save(update_fields=["status", "updated_at"])
-        ReviewDecision.objects.create(
-            organization=membership.organization,
-            candidate=candidate,
-            reviewer=cast(User, request.user),
-            decision=candidate.status,
-            note=form.cleaned_data["note"],
-        )
-        record_event(
-            request,
-            membership.organization,
-            "opportunity.reviewed",
-            object_type="opportunity",
-            object_id=str(candidate.id),
-            metadata={"decision": candidate.status},
-        )
-        messages.success(request, "Review decision saved.")
-    else:
-        messages.error(request, "The review decision was not valid.")
-    return redirect("opportunity_detail", candidate_id=candidate.id)
 
 
 @login_required
